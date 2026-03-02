@@ -17,6 +17,7 @@ export interface StructuralScore {
     ma50: number;
     ma200: number;
     details_json?: Record<string, unknown>;
+    narrative?: NarrativeScore | null;
 }
 
 export interface NarrativeScore {
@@ -79,6 +80,8 @@ async function apiDelete<T>(path: string): Promise<T> {
 
 // ── API calls ─────────────────────────────────────────────
 export const api = {
+    getDashboardAssets: () => apiFetch<{ data: StructuralScore[] }>("/api/assets/dashboard"),
+
     getScannedAssets: (phase?: string, state?: string) =>
         apiFetch<{ data: StructuralScore[]; count: number }>(
             `/api/assets/scan${phase ? `?phase=${phase}` : ""}${state ? `${phase ? "&" : "?"}state=${state}` : ""}`

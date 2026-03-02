@@ -14,8 +14,6 @@ const STATE_FILTERS = [
 
 export default function DashboardPage() {
   const [assets, setAssets] = useState<StructuralScore[]>([]);
-  const [narrativeMap, setNarrativeMap] = useState<Record<string, NarrativeScore>>({});
-  const [historyMap, setHistoryMap] = useState<Record<string, ScoreHistory[]>>({});
   // watchedSymbols — single source of truth, updated optimistically
   const [watchedSymbols, setWatchedSymbols] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
@@ -28,7 +26,7 @@ export default function DashboardPage() {
     setError(null);
     try {
       const [assetsRes, watchlistRes] = await Promise.all([
-        api.getScannedAssets(),
+        api.getDashboardAssets(),
         api.getWatchlist().catch(() => ({ watchlist: [] })),
       ]);
 
@@ -40,23 +38,9 @@ export default function DashboardPage() {
       );
       setWatchedSymbols(watched);
 
-      // Fetch narratives and history
-      const top30 = assetList.slice(0, 50);
-      const [narResults, histResults] = await Promise.all([
-        Promise.all(top30.map((a: StructuralScore) => api.getNarrative(a.symbol).catch(() => ({ symbol: a.symbol, narratives: [] })))),
-        Promise.all(top30.map((a: StructuralScore) => api.getHistory(a.symbol, 30).catch(() => ({ symbol: a.symbol, history: [] })))),
-      ]);
-
-      const narMap: Record<string, NarrativeScore> = {};
-      narResults.forEach((r: { symbol: string; narratives: NarrativeScore[] }) => {
-        if (r.narratives.length > 0) narMap[r.symbol] = r.narratives[0];
-      });
-      setNarrativeMap(narMap);
-
-      const hMap: Record<string, ScoreHistory[]> = {};
-      histResults.forEach((r: { symbol: string; history: ScoreHistory[] }) => { hMap[r.symbol] = r.history; });
-      setHistoryMap(hMap);
-    } catch {
+      setLoading(false);
+    } catch (err: any) {
+      console.error(err);
       setError("No se puede conectar con el backend. Asegúrate de que está corriendo en :8000");
     } finally {
       setLoading(false);
@@ -240,8 +224,6 @@ export default function DashboardPage() {
                     )}
                     <AssetCard
                       asset={asset}
-                      narrative={narrativeMap[asset.symbol] ?? null}
-                      history={historyMap[asset.symbol] ?? []}
                       isWatched={true}
                       onWatchToggle={handleWatchToggle}
                     />
@@ -254,12 +236,24 @@ export default function DashboardPage() {
           <div className="section-divider" />
 
           {/* Trend sections — pass watchedSymbols so buttons reflect current state */}
-          <TrendSection phase="Emerging" assets={filteredAssets} narrativeMap={narrativeMap} historyMap={historyMap} watchedSymbols={watchedSymbols} onWatchToggle={handleWatchToggle} />
-          <div className="section-divider" />
-          <TrendSection phase="Confirmed" assets={filteredAssets} narrativeMap={narrativeMap} historyMap={historyMap} watchedSymbols={watchedSymbols} onWatchToggle={handleWatchToggle} />
-          <div className="section-divider" />
-          <TrendSection phase="Structural" assets={filteredAssets} narrativeMap={narrativeMap} historyMap={historyMap} watchedSymbols={watchedSymbols} onWatchToggle={handleWatchToggle} />
-        </>
+          <TrendSection
+            phase="Emerging"
+            assets={filteredAssets}
+            watchedSymbols={watchedSymbols}
+            onWatchToggle={handleWatchToggle}
+          />
+          <TrendSection
+            phase="Confirmed"
+            assets={filteredAssets}
+            watchedSymbols={watchedSymbols}
+            onWatchToggle={handleWatchToggle}
+          />
+          <TrendSection
+            phase="Structural"
+            assets={filteredAssets}
+            watchedSymbols={watchedSymbols}
+            onWatchToggle={handleWatchToggle}
+          />  </>
       )}
     </>
   );

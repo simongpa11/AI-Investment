@@ -1,7 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { StructuralScore, NarrativeScore, ScoreHistory, STATE_LABELS, STATE_EMOJIS, getCombinedScore, getSignalStrength, api } from "@/lib/api";
-import { MiniChart } from "./MiniChart";
+import { StructuralScore, STATE_LABELS, STATE_EMOJIS, getCombinedScore, getSignalStrength, api } from "@/lib/api";
 import { DossierModal } from "./DossierModal";
 
 const STATE_COLORS: Record<string, string> = {
@@ -14,21 +13,17 @@ const STATE_COLORS: Record<string, string> = {
 
 interface AssetCardProps {
     asset: StructuralScore;
-    narrative?: NarrativeScore | null;
-    history?: ScoreHistory[];
     isWatched?: boolean;
     onWatchToggle?: (symbol: string, watched: boolean) => void;
 }
 
 export function AssetCard({
     asset,
-    narrative,
-    history = [],
     isWatched = false,
     onWatchToggle,
 }: AssetCardProps) {
     const structScore = asset.trend_persistence_score;
-    const narScore = narrative?.narrative_persistence_score ?? 0;
+    const narScore = asset.narrative?.narrative_persistence_score ?? 0;
     const combined = getCombinedScore(structScore, narScore);
     const signal = getSignalStrength(structScore, narScore, asset.duration_days);
     const stateColor = STATE_COLORS[asset.structural_state] || STATE_COLORS.none;
@@ -125,28 +120,18 @@ export function AssetCard({
                     )}
                 </div>
 
-                {/* Mini Chart — click hint */}
-                <div
-                    style={{ marginBottom: 12, position: "relative" }}
-                    title="Pulsa para ver el historial completo"
-                >
-                    <MiniChart data={history} dataKey="combined_score" color={stateColor} />
-                    {/* Hover hint overlay */}
-                    <div style={{
-                        position: "absolute", inset: 0,
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        opacity: 0, transition: "opacity 0.2s",
-                        fontSize: "0.65rem", color: "var(--text-muted)",
-                        pointerEvents: "none",
-                    }} className="chart-hover-hint">
-                        📈 Ver historial
-                    </div>
+                {/* Click hint */}
+                <div style={{
+                    fontSize: "0.65rem", color: "var(--text-muted)",
+                    textAlign: "center", marginBottom: 12, marginTop: -4
+                }}>
+                    👆 Pulsa para ver el historial y sumario de IA completo
                 </div>
 
                 {/* AI Summary */}
-                {narrative?.summary_ai && (
+                {asset.narrative?.summary_ai && (
                     <div className="ai-summary">
-                        🤖 {narrative.summary_ai}
+                        🤖 {asset.narrative.summary_ai}
                     </div>
                 )}
 
@@ -175,7 +160,6 @@ export function AssetCard({
             {modalOpen && (
                 <DossierModal
                     asset={asset}
-                    narrative={narrative ?? null}
                     onClose={() => setModalOpen(false)}
                 />
             )}

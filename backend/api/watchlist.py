@@ -6,27 +6,48 @@ router = APIRouter(prefix="/api/watchlist", tags=["watchlist"])
 
 @router.get("")
 async def get_user_watchlist():
-    """Return all watched assets with latest scores."""
+    """Return all watched assets with latest structured and narrative scores."""
     result = await get_watchlist()
     data = result.data or []
+    if not data:
+        return {"watchlist": []}
 
-    # Enrich each item with latest structural + narrative scores
+    symbols = [item["symbol"] for item in data]
+    
+    # Batch fetch structural scores
+    from db.supabase_client import get_client
+    client = get_client()
+    struct_res = client.table("structural_scores").select("*").in_("symbol", symbols).execute()
+    
+    struct_map = {}
+    for s in (struct_res.data or []):
+        sym = s["symbol"]
+        if sym not in struct_map or s["date"] > struct_map[sym]["date"]:
+            struct_map[sym] = s
+            
+    # Batch fetch narratives
+    nar_res = client.table("narrative_scores").select("*").in_("symbol", symbols).execute()
+    nar_map = {}
+    for n in (nar_res.data or []):
+        sym = n["symbol"]
+        if sym not in nar_map or n["date"] > nar_map[sym]["date"]:
+            nar_map[sym] = n
+
+    # Enrich each structural asset with its narrative
+    for sym, s in struct_map.items():
+        s["narrative"] = nar_map.get(sym)
+
+    # Build final response
     enriched = []
     for item in data:
         symbol = item["symbol"]
-        struct = await get_structural_scores(limit=1)
-        struct_data = next(
-            (r for r in (struct.data or []) if r["symbol"] == symbol), None
-        )
-        hist = await get_score_history(symbol, days=30)
-
         enriched.append({
             "symbol": symbol,
             "added_at": item.get("added_at"),
             "is_active": item.get("is_active", True),
             "notes": item.get("notes", ""),
-            "structural": struct_data,
-            "history": hist.data or [],
+            "structural": struct_map.get(symbol),
+            "history": [], # Lazy loaded by DossierModal
         })
 
     return {"watchlist": enriched}

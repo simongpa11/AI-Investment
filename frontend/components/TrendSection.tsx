@@ -8,8 +8,6 @@ const DEFAULT_VISIBLE = 8;
 interface TrendSectionProps {
     phase: "Emerging" | "Confirmed" | "Structural";
     assets: StructuralScore[];
-    narrativeMap: Record<string, NarrativeScore>;
-    historyMap: Record<string, ScoreHistory[]>;
     watchedSymbols: Set<string>;
     onWatchToggle: (symbol: string, watched: boolean) => void;
 }
@@ -41,8 +39,6 @@ const PHASE_CONFIG = {
 export function TrendSection({
     phase,
     assets,
-    narrativeMap,
-    historyMap,
     watchedSymbols,
     onWatchToggle,
 }: TrendSectionProps) {
@@ -84,8 +80,6 @@ export function TrendSection({
                             <AssetCard
                                 key={asset.symbol}
                                 asset={asset}
-                                narrative={narrativeMap[asset.symbol] ?? null}
-                                history={historyMap[asset.symbol] ?? []}
                                 isWatched={watchedSymbols.has(asset.symbol)}
                                 onWatchToggle={onWatchToggle}
                             />

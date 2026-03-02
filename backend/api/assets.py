@@ -11,6 +11,35 @@ from db.supabase_client import upsert_structural_score, upsert_narrative_score, 
 router = APIRouter(prefix="/api/assets", tags=["assets"])
 
 
+@router.get("/dashboard")
+async def get_dashboard_assets(limit: int = Query(50, le=100)):
+    """Return top assets with their latest narrative score merged in (2 queries total)."""
+    # 1. Get top structural
+    struct_res = await get_structural_scores(limit=limit)
+    struct_data = struct_res.data or []
+    if not struct_data:
+        return {"data": []}
+
+    # 2. Get narratives for these symbols in one go
+    symbols = [s["symbol"] for s in struct_data]
+    from db.supabase_client import get_client
+    client = get_client()
+    nar_res = client.table("narrative_scores").select("*").in_("symbol", symbols).execute()
+    
+    # Keep only the newest narrative per symbol
+    nar_map = {}
+    for n in (nar_res.data or []):
+        sym = n["symbol"]
+        if sym not in nar_map or n["date"] > nar_map[sym]["date"]:
+            nar_map[sym] = n
+
+    # 3. Merge
+    for item in struct_data:
+        item["narrative"] = nar_map.get(item["symbol"])
+
+    return {"data": struct_data}
+
+
 @router.get("/scan")
 async def get_scanned_assets(
     phase: str = Query(None, description="Emerging | Confirmed | Structural"),
