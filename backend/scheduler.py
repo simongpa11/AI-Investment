@@ -27,8 +27,15 @@ scheduler = AsyncIOScheduler(timezone="Europe/Madrid")
 
 async def _run_structural():
     """Run structural scan and persist scores. Returns results list."""
+    from db.supabase_client import get_watchlist
+    
+    # Combine default universe with user's active watchlist
+    wl_res = await get_watchlist()
+    wl_symbols = [item["symbol"] for item in (wl_res.data or [])]
+    all_symbols = list(set(SCAN_UNIVERSE + wl_symbols))
+    
     loop = asyncio.get_event_loop()
-    results = await loop.run_in_executor(None, run_full_scan, SCAN_UNIVERSE)
+    results = await loop.run_in_executor(None, run_full_scan, all_symbols)
     for r in results:
         try:
             await upsert_structural_score(r)

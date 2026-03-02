@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import { api, StructuralScore, NarrativeScore, ScoreHistory, PhaseSummary, WatchlistItem } from "@/lib/api";
+import { api, triggerManualScan, StructuralScore, NarrativeScore, ScoreHistory, PhaseSummary, WatchlistItem } from "@/lib/api";
 import { TrendSection } from "@/components/TrendSection";
 import { AssetCard } from "@/components/AssetCard";
 
@@ -20,6 +20,10 @@ export default function DashboardPage() {
   const [scanning, setScanning] = useState(false);
   const [stateFilter, setStateFilter] = useState("all");
   const [error, setError] = useState<string | null>(null);
+
+  // Manual Scan state
+  const [manualTicker, setManualTicker] = useState("");
+  const [isManualScanning, setIsManualScanning] = useState(false);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -59,9 +63,36 @@ export default function DashboardPage() {
       else next.delete(symbol);
       return next;
     });
+    const toggleReq = nowWatched ? api.watch(symbol) : api.unwatch(symbol);
+    toggleReq.catch(() => {
+      // Revert optimism on failure
+      setWatchedSymbols(prev => {
+        const next = new Set(prev);
+        if (nowWatched) next.delete(symbol);
+        else next.add(symbol);
+        return next;
+      });
+    });
   }, []);
 
-  const handleScan = async () => {
+  // ─── MANUAL SCAN HANDLER ──────────────────────────────────────────────────
+  const handleManualScan = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!manualTicker.trim() || isManualScanning) return;
+
+    setIsManualScanning(true);
+    try {
+      await triggerManualScan(manualTicker.trim().toUpperCase());
+      await loadData();
+      setManualTicker("");
+    } catch (err: any) {
+      alert("Error: " + err.message);
+    } finally {
+      setIsManualScanning(false);
+    }
+  };
+
+  const handleGlobalScan = async () => {
     setScanning(true);
     try {
       await api.triggerFullScan();
@@ -130,7 +161,7 @@ export default function DashboardPage() {
 
           <button
             className="btn btn-primary btn-scan"
-            onClick={handleScan}
+            onClick={handleGlobalScan}
             disabled={scanning}
             id="btn-trigger-scan"
             style={{ marginLeft: "auto" }}
@@ -179,13 +210,13 @@ export default function DashboardPage() {
         <>
           {/* ★ SIGUIENDO — always visible, updates instantly */}
           <section className="trend-section" id="section-siguiendo">
-            <div className="section-header">
+            <div className="section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
               <div className="section-title">
                 <span style={{ fontSize: "1.3rem" }}>★</span>
                 <div>
-                  <h2 style={{ color: "var(--accent-rose)" }}>Siguiendo</h2>
+                  <h2 style={{ color: "var(--accent-rose)" }}>Siguiendo / Manual Trends</h2>
                   <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 2 }}>
-                    Tu lista personal · Se actualiza en tiempo real
+                    Tus acciones guardadas · Se escanean automáticamente
                   </p>
                 </div>
                 <span
@@ -199,6 +230,55 @@ export default function DashboardPage() {
                   {watchedSymbols.size}
                 </span>
               </div>
+
+              <form onSubmit={handleManualScan} className="manual-scan-form" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <input
+                  type="text"
+                  placeholder="Añadir Ticker (ej: PLTR)"
+                  value={manualTicker}
+                  onChange={e => setManualTicker(e.target.value)}
+                  disabled={isManualScanning}
+                  style={{
+                    padding: '8px 12px',
+                    borderRadius: 6,
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    background: 'rgba(0,0,0,0.2)',
+                    color: 'white',
+                    fontSize: '0.875rem',
+                    width: '180px',
+                    outline: 'none',
+                    transition: 'border-color 0.2s ease',
+                  }}
+                />
+                <button
+                  type="submit"
+                  disabled={isManualScanning || !manualTicker.trim()}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: 6,
+                    background: isManualScanning ? 'var(--bg-glass)' : 'rgba(108, 99, 255, 0.2)',
+                    color: isManualScanning ? 'var(--text-muted)' : 'var(--accent-blue)',
+                    border: '1px solid',
+                    borderColor: isManualScanning ? 'transparent' : 'rgba(108, 99, 255, 0.4)',
+                    fontSize: '0.875rem',
+                    fontWeight: 500,
+                    cursor: isManualScanning || !manualTicker.trim() ? 'not-allowed' : 'pointer',
+                    transition: 'all 0.2s ease',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6
+                  }}
+                >
+                  {isManualScanning ? (
+                    <>
+                      <span className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }}></span>
+                      Escaneando...
+                    </>
+                  ) : (
+                    <>+ Escanear</>
+                  )}
+                </button>
+              </form>
             </div>
 
             {watchlistAssets.length === 0 ? (
@@ -231,7 +311,7 @@ export default function DashboardPage() {
                 ))}
               </div>
             )}
-          </section>
+          </section >
 
           <div className="section-divider" />
 
@@ -254,7 +334,8 @@ export default function DashboardPage() {
             watchedSymbols={watchedSymbols}
             onWatchToggle={handleWatchToggle}
           />  </>
-      )}
+      )
+      }
     </>
   );
 }

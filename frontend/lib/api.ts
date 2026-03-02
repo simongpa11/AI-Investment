@@ -113,6 +113,16 @@ export const api = {
         }>(`/api/watchlist/${symbol}/dossier`),
 };
 
+export async function triggerManualScan(symbol: string): Promise<any> {
+    const res = await fetch(`${API_BASE}/api/scan/manual/${symbol}`, {
+        method: "POST",
+    });
+    if (!res.ok) {
+        throw new Error(await res.text() || "Failed to scan symbol");
+    }
+    return res.json();
+}
+
 // ── Helpers ────────────────────────────────────────────────
 export const STATE_LABELS: Record<string, string> = {
     accumulation: "🟢 Acumulación",

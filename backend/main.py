@@ -62,3 +62,57 @@ async def trigger_scan():
     import asyncio
     asyncio.create_task(daily_scan_job())
     return {"message": "Scan triggered in background"}
+
+
+@app.post("/api/scan/manual/{symbol}")
+async def trigger_manual_scan(symbol: str):
+    """Manually scan a single symbol, save its history, and add it to watchlist."""
+    import asyncio
+    from fastapi import HTTPException
+    from modules.scanner import scan_symbol
+    from modules.narrative import scan_narrative
+    from db.supabase_client import (
+        upsert_structural_score,
+        upsert_narrative_score,
+        insert_score_history,
+        add_to_watchlist
+    )
+
+    sym = symbol.upper()
+    loop = asyncio.get_event_loop()
+    
+    # 1. Structural Scan
+    result = await loop.run_in_executor(None, scan_symbol, sym)
+    if not result:
+        raise HTTPException(status_code=404, detail=f"Could not fetch data for {sym}. Invalid ticker?")
+
+    await upsert_structural_score(result)
+
+    # 2. Narrative Scan
+    name = result.get("name", sym)
+    narrative = await scan_narrative(sym, name)
+    
+    if narrative:
+        await upsert_narrative_score(narrative)
+        
+        # 3. History Snapshot
+        narrative_score = narrative.get("narrative_persistence_score", 0)
+        struct_score = result["trend_persistence_score"]
+        combined = int(struct_score * 0.65 + narrative_score * 0.35)
+        await insert_score_history({
+            "symbol": sym,
+            "date": result["date"],
+            "structural_score": struct_score,
+            "narrative_score": narrative_score,
+            "combined_score": combined,
+        })
+    
+    # 4. Add to Watchlist
+    await add_to_watchlist(sym)
+
+    return {
+        "message": f"Scan complete for {sym}",
+        "symbol": sym,
+        "structural": result,
+        "narrative": narrative
+    }
