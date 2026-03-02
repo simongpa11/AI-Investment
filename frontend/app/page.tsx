@@ -16,8 +16,7 @@ export default function DashboardPage() {
   const [assets, setAssets] = useState<StructuralScore[]>([]);
   const [narrativeMap, setNarrativeMap] = useState<Record<string, NarrativeScore>>({});
   const [historyMap, setHistoryMap] = useState<Record<string, ScoreHistory[]>>({});
-  const [summary, setSummary] = useState<PhaseSummary | null>(null);
-  // Single source of truth for watched symbols — updated optimistically
+  // watchedSymbols — single source of truth, updated optimistically
   const [watchedSymbols, setWatchedSymbols] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [scanning, setScanning] = useState(false);
@@ -28,15 +27,13 @@ export default function DashboardPage() {
     setLoading(true);
     setError(null);
     try {
-      const [assetsRes, summaryRes, watchlistRes] = await Promise.all([
+      const [assetsRes, watchlistRes] = await Promise.all([
         api.getScannedAssets(),
-        api.getPhaseSummary().catch(() => null),
         api.getWatchlist().catch(() => ({ watchlist: [] })),
       ]);
 
       const assetList = assetsRes.data || [];
       setAssets(assetList);
-      setSummary(summaryRes);
 
       const watched = new Set<string>(
         (watchlistRes.watchlist || []).map((w: WatchlistItem) => w.symbol)
@@ -92,11 +89,16 @@ export default function DashboardPage() {
     }
   };
 
+  // Compute stats directly from asset data — only counts assets with actual structure
+  const structured = assets.filter((a) => a.structural_state !== "none");
+  const statEmerging = structured.filter((a) => a.phase === "Emerging").length;
+  const statConfirmed = structured.filter((a) => a.phase === "Confirmed").length;
+  const statStructural = structured.filter((a) => a.phase === "Structural").length;
+  const totalSignals = structured.length;
+
   const filteredAssets = stateFilter === "all"
     ? assets
     : assets.filter((a) => a.structural_state === stateFilter);
-
-  const totalSignals = assets.filter((a) => a.structural_state !== "none").length;
 
   // Derive watchlist assets purely from state — no extra fetch needed
   const watchlistAssets: StructuralScore[] = Array.from(watchedSymbols)
@@ -116,26 +118,26 @@ export default function DashboardPage() {
           <div className="stat-chip">
             <div className="stat-dot" style={{ background: "#F59E0B" }} />
             <div>
-              <div className="stat-chip-value">{summary?.phases?.Emerging ?? "—"}</div>
+              <div className="stat-chip-value">{statEmerging}</div>
               <div className="stat-chip-label">🔥 Emerging</div>
             </div>
           </div>
           <div className="stat-chip">
             <div className="stat-dot" style={{ background: "var(--accent-emerald)" }} />
             <div>
-              <div className="stat-chip-value">{summary?.phases?.Confirmed ?? "—"}</div>
+              <div className="stat-chip-value">{statConfirmed}</div>
               <div className="stat-chip-label">🟢 Confirmed</div>
             </div>
           </div>
           <div className="stat-chip">
             <div className="stat-dot" style={{ background: "var(--accent-blue)" }} />
             <div>
-              <div className="stat-chip-value">{summary?.phases?.Structural ?? "—"}</div>
+              <div className="stat-chip-value">{statStructural}</div>
               <div className="stat-chip-label">🔵 Structural</div>
             </div>
           </div>
           <div className="stat-chip">
-            <div className="stat-dot" style={{ background: "var(--accent-indigo)" }} />
+            <div className="stat-dot" style={{ background: "#A78BFA" }} />
             <div>
               <div className="stat-chip-value">{totalSignals}</div>
               <div className="stat-chip-label">Con estructura</div>

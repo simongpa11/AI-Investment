@@ -1,6 +1,9 @@
 "use client";
+import { useState } from "react";
 import { StructuralScore, NarrativeScore, ScoreHistory } from "@/lib/api";
 import { AssetCard } from "./AssetCard";
+
+const DEFAULT_VISIBLE = 8;
 
 interface TrendSectionProps {
     phase: "Emerging" | "Confirmed" | "Structural";
@@ -17,18 +20,21 @@ const PHASE_CONFIG = {
         label: "Emerging Trends",
         subtitle: "0–7 días · Estructuras nuevas no consolidadas",
         pillClass: "emerging",
+        dotColor: "#F59E0B",
     },
     Confirmed: {
         icon: "🟢",
         label: "Confirmed Trends",
         subtitle: "7–30 días · Zona principal de inversión",
         pillClass: "confirmed",
+        dotColor: "#00D4AA",
     },
     Structural: {
         icon: "🔵",
         label: "Structural Trends",
         subtitle: "30+ días · Re-ratings y consolidaciones",
         pillClass: "structural",
+        dotColor: "#3B82F6",
     },
 };
 
@@ -41,9 +47,14 @@ export function TrendSection({
     onWatchToggle,
 }: TrendSectionProps) {
     const config = PHASE_CONFIG[phase];
+    const [showAll, setShowAll] = useState(false);
+
     const filtered = assets.filter(
         (a) => a.phase === phase && a.structural_state !== "none"
     );
+
+    const visible = showAll ? filtered : filtered.slice(0, DEFAULT_VISIBLE);
+    const hiddenCount = filtered.length - DEFAULT_VISIBLE;
 
     return (
         <section className="trend-section" id={`section-${phase.toLowerCase()}`}>
@@ -67,18 +78,47 @@ export function TrendSection({
                     <p style={{ marginTop: 8, fontSize: "0.75rem" }}>Ejecuta un scan para actualizar.</p>
                 </div>
             ) : (
-                <div className="asset-grid">
-                    {filtered.map((asset) => (
-                        <AssetCard
-                            key={asset.symbol}
-                            asset={asset}
-                            narrative={narrativeMap[asset.symbol] ?? null}
-                            history={historyMap[asset.symbol] ?? []}
-                            isWatched={watchedSymbols.has(asset.symbol)}
-                            onWatchToggle={onWatchToggle}
-                        />
-                    ))}
-                </div>
+                <>
+                    <div className="asset-grid">
+                        {visible.map((asset) => (
+                            <AssetCard
+                                key={asset.symbol}
+                                asset={asset}
+                                narrative={narrativeMap[asset.symbol] ?? null}
+                                history={historyMap[asset.symbol] ?? []}
+                                isWatched={watchedSymbols.has(asset.symbol)}
+                                onWatchToggle={onWatchToggle}
+                            />
+                        ))}
+                    </div>
+
+                    {/* Ver más / Ver menos */}
+                    {filtered.length > DEFAULT_VISIBLE && (
+                        <div style={{ textAlign: "center", marginTop: 16 }}>
+                            <button
+                                onClick={() => setShowAll(v => !v)}
+                                id={`show-more-${phase}`}
+                                style={{
+                                    background: "rgba(255,255,255,0.04)",
+                                    border: `1px solid ${config.dotColor}44`,
+                                    borderRadius: "var(--radius-full, 999px)",
+                                    color: config.dotColor,
+                                    padding: "8px 20px",
+                                    fontSize: "0.78rem",
+                                    fontWeight: 600,
+                                    cursor: "pointer",
+                                    transition: "background 0.2s, border-color 0.2s",
+                                }}
+                                onMouseEnter={e => (e.currentTarget.style.background = `${config.dotColor}18`)}
+                                onMouseLeave={e => (e.currentTarget.style.background = "rgba(255,255,255,0.04)")}
+                            >
+                                {showAll
+                                    ? "▲ Ver menos"
+                                    : `▼ Ver ${hiddenCount} más`}
+                            </button>
+                        </div>
+                    )}
+                </>
             )}
         </section>
     );
