@@ -82,12 +82,24 @@ function WatchlistCard({ item, onRemove }: { item: WatchlistItem; onRemove: (s: 
                         {duration}d activo · {item.structural?.phase ?? "—"}
                     </div>
                     <button
-                        className="btn btn-ghost btn-small"
-                        style={{ marginTop: 8 }}
-                        onClick={() => onRemove(item.symbol)}
                         id={`remove-${item.symbol}`}
+                        onClick={() => onRemove(item.symbol)}
+                        style={{
+                            marginTop: 8,
+                            padding: "5px 12px",
+                            fontSize: "0.72rem",
+                            fontWeight: 600,
+                            cursor: "pointer",
+                            background: "rgba(244,63,94,0.08)",
+                            border: "1px solid rgba(244,63,94,0.3)",
+                            borderRadius: "var(--radius-full, 999px)",
+                            color: "var(--accent-rose)",
+                            transition: "background 0.2s, border-color 0.2s",
+                        }}
+                        onMouseEnter={e => (e.currentTarget.style.background = "rgba(244,63,94,0.18)")}
+                        onMouseLeave={e => (e.currentTarget.style.background = "rgba(244,63,94,0.08)")}
                     >
-                        Dejar de seguir
+                        ✕ Dejar de seguir
                     </button>
                 </div>
             </div>
@@ -147,9 +159,13 @@ export default function WatchlistPage() {
 
     useEffect(() => { loadWatchlist(); }, []);
 
-    const handleRemove = async (symbol: string) => {
-        await api.unwatch(symbol);
+    // Optimistic remove — card disappears instantly, API called in background
+    const handleRemove = (symbol: string) => {
         setItems((prev) => prev.filter((i) => i.symbol !== symbol));
+        api.unwatch(symbol).catch(() => {
+            // If API fails, reload to restore the item
+            loadWatchlist();
+        });
     };
 
     const active = items.filter((i) => (i.structural?.trend_persistence_score ?? 0) >= 45);
