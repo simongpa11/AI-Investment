@@ -14,7 +14,7 @@ SUPABASE_SERVICE_KEY = os.getenv(
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "AIzaSyAEBcU2hg7ogBMREQP7wNauaISF0dNgySU")
 
 # Finnhub
-FINNHUB_API_KEY = os.getenv("FINNHUB_API_KEY", "")  # Free key from finnhub.io
+FINNHUB_API_KEY = os.getenv("FINNHUB_API_KEY", "d6iq2mhr01qleu953o0gd6iq2mhr01qleu953o10")
 
 # Scanner settings
 SCAN_UNIVERSE = [
