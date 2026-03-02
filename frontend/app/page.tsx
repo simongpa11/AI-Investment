@@ -137,13 +137,6 @@ export default function DashboardPage() {
             </div>
           </div>
           <div className="stat-chip">
-            <div className="stat-dot" style={{ background: "#A78BFA" }} />
-            <div>
-              <div className="stat-chip-value">{totalSignals}</div>
-              <div className="stat-chip-label">Con estructura</div>
-            </div>
-          </div>
-          <div className="stat-chip">
             <div className="stat-dot" style={{ background: "var(--accent-rose)" }} />
             <div>
               <div className="stat-chip-value">{watchedSymbols.size}</div>
