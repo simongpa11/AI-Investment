@@ -1,4 +1,6 @@
+import httpx
 from fastapi import APIRouter, Query, HTTPException
+from config import FINNHUB_API_KEY
 from db.supabase_client import (
     get_structural_scores,
     get_score_history,
@@ -136,3 +138,20 @@ async def get_phase_summary():
             k: v[:5] for k, v in phases.items()
         },
     }
+
+@router.get("/search")
+async def search_assets(q: str):
+    """Search for symbols via Finnhub API."""
+    if not q or len(q) < 2:
+        return {"data": []}
+    
+    async with httpx.AsyncClient() as client:
+        try:
+            res = await client.get(
+                f"https://finnhub.io/api/v1/search?q={q}&token={FINNHUB_API_KEY}"
+            )
+            data = res.json()
+            # Finnhub returns { "count": ..., "result": [ {"description": "APPLE INC", "displaySymbol": "AAPL", "symbol": "AAPL", "type": "Common Stock"} ] }
+            return {"data": data.get("result", [])}
+        except Exception as e:
+            return {"data": [], "error": str(e)}

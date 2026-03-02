@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from scheduler import start_scheduler, stop_scheduler, daily_scan_job
 from api.assets import router as assets_router
 from api.watchlist import router as watchlist_router
+from api.portfolio import router as portfolio_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -44,6 +45,7 @@ app.add_middleware(
 
 app.include_router(assets_router)
 app.include_router(watchlist_router)
+app.include_router(portfolio_router, prefix="/api/portfolio")
 
 
 @app.get("/")

@@ -104,3 +104,48 @@ CREATE POLICY "anon_read_structural" ON structural_scores FOR SELECT USING (true
 CREATE POLICY "anon_read_narrative" ON narrative_scores FOR SELECT USING (true);
 CREATE POLICY "anon_read_history" ON score_history FOR SELECT USING (true);
 CREATE POLICY "anon_read_watchlist" ON watchlist FOR SELECT USING (true);
+
+-- ─────────────────────────────────────────────
+-- 6. PORTFOLIO SETTINGS (Module 3)
+-- ─────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS portfolio_settings (
+    id SERIAL PRIMARY KEY,
+    base_eur NUMERIC NOT NULL DEFAULT 1000,
+    cap_extra_eur NUMERIC NOT NULL DEFAULT 5000,
+    target_weights_json JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Insert default configuration if it doesn't exist
+INSERT INTO portfolio_settings (id, base_eur, cap_extra_eur, target_weights_json)
+VALUES (1, 1000, 5000, '{"NVDA": 15, "PLTR": 15, "BTC": 10}')
+ON CONFLICT (id) DO NOTHING;
+
+-- ─────────────────────────────────────────────
+-- 7. PORTFOLIO LEDGER (TRANSACTIONS)
+-- ─────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS portfolio_ledger (
+    id BIGSERIAL PRIMARY KEY,
+    type VARCHAR(50) NOT NULL CHECK (type IN ('DEPOSIT', 'WITHDRAW', 'BUY', 'SELL', 'DIVIDEND', 'FEE')),
+    date DATE NOT NULL,
+    symbol VARCHAR(20),     -- Nullable for deposits/withdrawals
+    shares NUMERIC,         -- Positive for BUY, negative for SELL
+    price_per_share NUMERIC,
+    currency VARCHAR(10) DEFAULT 'USD',
+    fx_rate NUMERIC DEFAULT 1.0, -- USD to EUR rate at transaction time
+    total_eur NUMERIC NOT NULL,  -- The exact EUR impact on the portfolio cash (+ for deposits, - for buys)
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_portfolio_ledger_date ON portfolio_ledger(date DESC);
+CREATE INDEX IF NOT EXISTS idx_portfolio_ledger_symbol ON portfolio_ledger(symbol);
+
+ALTER TABLE portfolio_settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE portfolio_ledger ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "service_role_all" ON portfolio_settings FOR ALL USING (true);
+CREATE POLICY "service_role_all" ON portfolio_ledger FOR ALL USING (true);
+
+CREATE POLICY "anon_read_portfolio_settings" ON portfolio_settings FOR ALL USING (true);
+CREATE POLICY "anon_read_portfolio_ledger" ON portfolio_ledger FOR ALL USING (true);

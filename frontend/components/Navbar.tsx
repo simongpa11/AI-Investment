@@ -50,11 +50,14 @@ export function Navbar() {
                 <span className="navbar-logo-text">AI Investment</span>
             </div>
             <div className="navbar-nav">
+                <Link href="/portfolio" className={`nav-link ${pathname === "/portfolio" ? "active" : ""}`}>
+                    Mis posiciones
+                </Link>
                 <Link href="/" className={`nav-link ${pathname === "/" ? "active" : ""}`}>
                     Dashboard
                 </Link>
                 <Link href="/watchlist" className={`nav-link ${pathname === "/watchlist" ? "active" : ""}`}>
-                    Watchlist
+                    Siguiendo
                 </Link>
                 <Link href="/docs" className={`nav-link ${pathname === "/docs" ? "active" : ""}`} style={{ opacity: 0.7 }}>
                     Docs
