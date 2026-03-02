@@ -57,8 +57,9 @@ async def get_watchlist():
     client = get_client()
     return (
         client.table("watchlist")
-        .select("*, structural_scores(*), narrative_scores(*)")
+        .select("symbol, added_at, is_active, notes")
         .eq("is_active", True)
+        .order("added_at", desc=True)
         .execute()
     )
 
@@ -76,7 +77,7 @@ async def remove_from_watchlist(symbol: str):
     client = get_client()
     return (
         client.table("watchlist")
-        .update({"is_active": False})
+        .delete()
         .eq("symbol", symbol)
         .execute()
     )
