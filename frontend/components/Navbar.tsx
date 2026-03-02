@@ -10,14 +10,24 @@ export function Navbar() {
     const [lastScanAt, setLastScanAt] = useState<string | null>(null);
 
     useEffect(() => {
-        // Fetch the most recent created_at from structural_scores
-        fetch(`${API_URL}/api/assets/scan?limit=1`)
+        // Fetch the most recent created_at from structural_scores globally
+        fetch(`${API_URL}/api/assets/last-scan`)
             .then(r => r.json())
             .then(d => {
-                const first = d?.data?.[0];
-                if (first?.created_at) setLastScanAt(first.created_at);
+                if (d?.last_scan) setLastScanAt(d.last_scan);
             })
             .catch(() => null);
+
+        // Also refresh the timestamp every 3 minutes so it stays updated
+        const interval = setInterval(() => {
+            fetch(`${API_URL}/api/assets/last-scan`)
+                .then(r => r.json())
+                .then(d => {
+                    if (d?.last_scan) setLastScanAt(d.last_scan);
+                })
+                .catch(() => null);
+        }, 180000);
+        return () => clearInterval(interval);
     }, []);
 
     const formatScanTime = (iso: string) => {

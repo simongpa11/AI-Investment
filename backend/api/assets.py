@@ -40,6 +40,17 @@ async def get_dashboard_assets(limit: int = Query(50, le=100)):
     return {"data": struct_data}
 
 
+@router.get("/last-scan")
+async def get_last_scan():
+    """Returns the most recent single scan time from the database."""
+    from db.supabase_client import get_last_scan_time
+    res = await get_last_scan_time()
+    data = res.data or []
+    if data:
+        return {"last_scan": data[0]["created_at"]}
+    return {"last_scan": None}
+
+
 @router.get("/scan")
 async def get_scanned_assets(
     phase: str = Query(None, description="Emerging | Confirmed | Structural"),

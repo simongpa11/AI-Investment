@@ -40,6 +40,16 @@ async def get_structural_scores(phase: Optional[str] = None, limit: int = 100):
         query = query.eq("phase", phase)
     return query.execute()
 
+async def get_last_scan_time():
+    client = get_client()
+    return (
+        client.table("structural_scores")
+        .select("created_at")
+        .order("created_at", desc=True)
+        .limit(1)
+        .execute()
+    )
+
 
 async def get_score_history(symbol: str, days: int = 90):
     client = get_client()
