@@ -10,8 +10,8 @@ SUPABASE_SERVICE_KEY = os.getenv(
     "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndsdmF0cGZvcnlqYmRzb2RxZHphIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MjQ1NTQ1MiwiZXhwIjoyMDg4MDMxNDUyfQ.VyghCQUc66hzw9XjSvEkmawPDovjRHm2D_g9oHdbwT4",
 )
 
-# Gemini
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "AIzaSyAEBcU2hg7ogBMREQP7wNauaISF0dNgySU")
+# Gemini — set via .env file or environment variable (never hardcode)
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
 # Finnhub
 FINNHUB_API_KEY = os.getenv("FINNHUB_API_KEY", "d6iq2mhr01qleu953o0gd6iq2mhr01qleu953o10")

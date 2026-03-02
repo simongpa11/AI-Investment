@@ -2,6 +2,7 @@
 Module 2 — Narrative & Social Intelligence
 Fetches news via Finnhub, analyzes with Gemini LLM.
 """
+from __future__ import annotations
 import logging
 import math
 from datetime import datetime, timedelta, date

@@ -2,6 +2,7 @@
 Module 1 — Market Structural Scanner
 Detects structural changes in market behavior for medium-term investment.
 """
+from __future__ import annotations
 import logging
 from datetime import datetime, timedelta, date
 from typing import Optional

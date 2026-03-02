@@ -1,7 +1,9 @@
+from __future__ import annotations
+from typing import Optional, List
 from supabase import create_client, Client
 from config import SUPABASE_URL, SUPABASE_SERVICE_KEY
 
-_client: Client | None = None
+_client: Optional[Client] = None
 
 
 def get_client() -> Client:
@@ -26,7 +28,7 @@ async def insert_score_history(data: dict):
     return client.table("score_history").upsert(data, on_conflict="symbol,date").execute()
 
 
-async def get_structural_scores(phase: str | None = None, limit: int = 100):
+async def get_structural_scores(phase: Optional[str] = None, limit: int = 100):
     client = get_client()
     query = (
         client.table("structural_scores")
@@ -92,7 +94,7 @@ async def get_narrative_scores(symbol: str):
     )
 
 
-async def get_latest_scores(symbols: list[str] | None = None):
+async def get_latest_scores(symbols: Optional[List[str]] = None):
     """Get the most recent structural + narrative score for each symbol."""
     client = get_client()
     q = (
