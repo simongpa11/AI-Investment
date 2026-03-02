@@ -33,28 +33,24 @@ export function AssetCard({
     const signal = getSignalStrength(structScore, narScore, asset.duration_days);
     const stateColor = STATE_COLORS[asset.structural_state] || STATE_COLORS.none;
     const [watching, setWatching] = useState(isWatched);
-    const [watchLoading, setWatchLoading] = useState(false);
     const [modalOpen, setModalOpen] = useState(false);
 
     useEffect(() => { setWatching(isWatched); }, [isWatched]);
 
+    // Optimistic: flip UI instantly, persist in background, rollback on error
     const handleWatch = async (e: React.MouseEvent) => {
         e.stopPropagation();
-        setWatchLoading(true);
+        const prev = watching;
+        const next = !watching;
+        setWatching(next);
+        onWatchToggle?.(asset.symbol, next);
         try {
-            if (watching) {
-                await api.unwatch(asset.symbol);
-                setWatching(false);
-                onWatchToggle?.(asset.symbol, false);
-            } else {
-                await api.watch(asset.symbol);
-                setWatching(true);
-                onWatchToggle?.(asset.symbol, true);
-            }
+            if (next) await api.watch(asset.symbol);
+            else await api.unwatch(asset.symbol);
         } catch (err) {
-            console.error(err);
-        } finally {
-            setWatchLoading(false);
+            console.error("Watch failed, rolling back:", err);
+            setWatching(prev);
+            onWatchToggle?.(asset.symbol, prev);
         }
     };
 
@@ -168,10 +164,9 @@ export function AssetCard({
                     <button
                         className={`btn btn-small btn-watch ${watching ? "watching" : ""}`}
                         onClick={handleWatch}
-                        disabled={watchLoading}
                         id={`watch-${asset.symbol}`}
                     >
-                        {watchLoading ? "..." : watching ? "★ Siguiendo" : "☆ Seguir"}
+                        {watching ? "★ Siguiendo" : "☆ Seguir"}
                     </button>
                 </div>
             </div>

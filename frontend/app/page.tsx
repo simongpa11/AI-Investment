@@ -17,8 +17,8 @@ export default function DashboardPage() {
   const [narrativeMap, setNarrativeMap] = useState<Record<string, NarrativeScore>>({});
   const [historyMap, setHistoryMap] = useState<Record<string, ScoreHistory[]>>({});
   const [summary, setSummary] = useState<PhaseSummary | null>(null);
+  // Single source of truth for watched symbols — updated optimistically
   const [watchedSymbols, setWatchedSymbols] = useState<Set<string>>(new Set());
-  const [watchlistItems, setWatchlistItems] = useState<WatchlistItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [scanning, setScanning] = useState(false);
   const [stateFilter, setStateFilter] = useState("all");
@@ -38,32 +38,28 @@ export default function DashboardPage() {
       setAssets(assetList);
       setSummary(summaryRes);
 
-      const wItems = watchlistRes.watchlist || [];
-      setWatchlistItems(wItems);
-      const watched = new Set<string>(wItems.map((w) => w.symbol));
+      const watched = new Set<string>(
+        (watchlistRes.watchlist || []).map((w: WatchlistItem) => w.symbol)
+      );
       setWatchedSymbols(watched);
 
-      // Fetch narratives and history for top 30 + watchlist symbols
-      const watchedInList = wItems.map(w => w.symbol);
-      const top30 = assetList.slice(0, 30);
-      const allSymbols = Array.from(new Set([...top30.map(a => a.symbol), ...watchedInList]));
-      const allAssets = allSymbols.map(s => assetList.find(a => a.symbol === s)).filter(Boolean) as StructuralScore[];
-
+      // Fetch narratives and history
+      const top30 = assetList.slice(0, 50);
       const [narResults, histResults] = await Promise.all([
-        Promise.all(allAssets.map((a) => api.getNarrative(a.symbol).catch(() => ({ symbol: a.symbol, narratives: [] })))),
-        Promise.all(allAssets.map((a) => api.getHistory(a.symbol, 30).catch(() => ({ symbol: a.symbol, history: [] })))),
+        Promise.all(top30.map((a: StructuralScore) => api.getNarrative(a.symbol).catch(() => ({ symbol: a.symbol, narratives: [] })))),
+        Promise.all(top30.map((a: StructuralScore) => api.getHistory(a.symbol, 30).catch(() => ({ symbol: a.symbol, history: [] })))),
       ]);
 
       const narMap: Record<string, NarrativeScore> = {};
-      narResults.forEach((r) => {
+      narResults.forEach((r: { symbol: string; narratives: NarrativeScore[] }) => {
         if (r.narratives.length > 0) narMap[r.symbol] = r.narratives[0];
       });
       setNarrativeMap(narMap);
 
       const hMap: Record<string, ScoreHistory[]> = {};
-      histResults.forEach((r) => { hMap[r.symbol] = r.history; });
+      histResults.forEach((r: { symbol: string; history: ScoreHistory[] }) => { hMap[r.symbol] = r.history; });
       setHistoryMap(hMap);
-    } catch (err) {
+    } catch {
       setError("No se puede conectar con el backend. Asegúrate de que está corriendo en :8000");
     } finally {
       setLoading(false);
@@ -72,21 +68,17 @@ export default function DashboardPage() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  const handleWatchToggle = (symbol: string, watched: boolean) => {
-    setWatchedSymbols((prev) => {
+  // ─── OPTIMISTIC WATCH TOGGLE ──────────────────────────────────────────────
+  // Updates local state immediately — no page reload, no flash, no delay.
+  // The API call happens in the background; on failure we roll back.
+  const handleWatchToggle = useCallback((symbol: string, nowWatched: boolean) => {
+    setWatchedSymbols(prev => {
       const next = new Set(prev);
-      if (watched) next.add(symbol);
+      if (nowWatched) next.add(symbol);
       else next.delete(symbol);
       return next;
     });
-    // Update watchlist items list
-    setWatchlistItems((prev) => {
-      if (!watched) return prev.filter(i => i.symbol !== symbol);
-      return prev;
-    });
-    // After a short delay, reload data to get fresh watchlist
-    setTimeout(loadData, 500);
-  };
+  }, []);
 
   const handleScan = async () => {
     setScanning(true);
@@ -106,15 +98,10 @@ export default function DashboardPage() {
 
   const totalSignals = assets.filter((a) => a.structural_state !== "none").length;
 
-  // Build watchlist cards: get the full asset data for watched symbols
-  // Assets that are in watchlist but ALSO appear in the scanner → show in both sections
-  const watchlistAssets: StructuralScore[] = watchlistItems.map(item => {
-    const found = assets.find(a => a.symbol === item.symbol);
-    if (found) return found;
-    // If not in current scan (lost structure), use watchlist structural data
-    if (item.structural) return item.structural as StructuralScore;
-    return null;
-  }).filter(Boolean) as StructuralScore[];
+  // Derive watchlist assets purely from state — no extra fetch needed
+  const watchlistAssets: StructuralScore[] = Array.from(watchedSymbols)
+    .map(sym => assets.find(a => a.symbol === sym))
+    .filter(Boolean) as StructuralScore[];
 
   return (
     <>
@@ -125,9 +112,7 @@ export default function DashboardPage() {
           Detección de cambio estructural temprano · Inversión a medio plazo
         </p>
 
-        {/* Stats Row */}
         <div className="stats-row">
-          {/* 🔥 Emerging — amber */}
           <div className="stat-chip">
             <div className="stat-dot" style={{ background: "#F59E0B" }} />
             <div>
@@ -135,7 +120,6 @@ export default function DashboardPage() {
               <div className="stat-chip-label">🔥 Emerging</div>
             </div>
           </div>
-          {/* 🟢 Confirmed — emerald */}
           <div className="stat-chip">
             <div className="stat-dot" style={{ background: "var(--accent-emerald)" }} />
             <div>
@@ -143,7 +127,6 @@ export default function DashboardPage() {
               <div className="stat-chip-label">🟢 Confirmed</div>
             </div>
           </div>
-          {/* 🔵 Structural — blue */}
           <div className="stat-chip">
             <div className="stat-dot" style={{ background: "var(--accent-blue)" }} />
             <div>
@@ -151,7 +134,6 @@ export default function DashboardPage() {
               <div className="stat-chip-label">🔵 Structural</div>
             </div>
           </div>
-          {/* Con estructura — indigo */}
           <div className="stat-chip">
             <div className="stat-dot" style={{ background: "var(--accent-indigo)" }} />
             <div>
@@ -159,7 +141,6 @@ export default function DashboardPage() {
               <div className="stat-chip-label">Con estructura</div>
             </div>
           </div>
-          {/* Siguiendo — rose */}
           <div className="stat-chip">
             <div className="stat-dot" style={{ background: "var(--accent-rose)" }} />
             <div>
@@ -180,7 +161,6 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Error */}
       {error && (
         <div style={{
           padding: "16px 20px",
@@ -195,7 +175,6 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* State Filters */}
       <div className="filter-bar">
         {STATE_FILTERS.map((f) => (
           <button
@@ -209,7 +188,6 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {/* Loading Skeletons */}
       {loading && (
         <div className="asset-grid" style={{ marginBottom: 32 }}>
           {Array.from({ length: 6 }).map((_, i) => (
@@ -220,116 +198,72 @@ export default function DashboardPage() {
 
       {!loading && (
         <>
-          {/* ─── SIGUIENDO SECTION ──────────────────────────────── */}
-          {watchlistAssets.length > 0 && (
-            <>
-              <section className="trend-section" id="section-siguiendo">
-                <div className="section-header">
-                  <div className="section-title">
-                    <span style={{ fontSize: "1.3rem" }}>★</span>
-                    <div>
-                      <h2 style={{ color: "var(--accent-rose)" }}>Siguiendo</h2>
-                      <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 2 }}>
-                        Activos en tu watchlist · Nunca desaparecen, solo cambian de estado
-                      </p>
-                    </div>
-                    <span
-                      className="section-pill"
-                      style={{ background: "rgba(244,63,94,0.15)", color: "var(--accent-rose)" }}
-                    >
-                      {watchlistAssets.length}
-                    </span>
-                  </div>
+          {/* ★ SIGUIENDO — always visible, updates instantly */}
+          <section className="trend-section" id="section-siguiendo">
+            <div className="section-header">
+              <div className="section-title">
+                <span style={{ fontSize: "1.3rem" }}>★</span>
+                <div>
+                  <h2 style={{ color: "var(--accent-rose)" }}>Siguiendo</h2>
+                  <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 2 }}>
+                    Tu lista personal · Se actualiza en tiempo real
+                  </p>
                 </div>
-                <div className="asset-grid">
-                  {watchlistAssets.map((asset) => (
-                    <div key={asset.symbol} style={{ position: "relative" }}>
-                      {/* "También en tendencia" badge if it appears in a trending phase */}
-                      {asset.structural_state !== "none" && (
-                        <div style={{
-                          position: "absolute",
-                          top: -8,
-                          right: 12,
-                          zIndex: 10,
-                          background: "rgba(0,212,170,0.15)",
-                          border: "1px solid rgba(0,212,170,0.35)",
-                          borderRadius: 20,
-                          padding: "2px 8px",
-                          fontSize: "0.65rem",
-                          fontWeight: 700,
-                          color: "var(--accent-emerald)",
-                          letterSpacing: "0.04em",
-                        }}>
-                          📶 En tendencia activa
-                        </div>
-                      )}
-                      <AssetCard
-                        asset={asset}
-                        narrative={narrativeMap[asset.symbol] ?? null}
-                        history={historyMap[asset.symbol] ?? []}
-                        isWatched={true}
-                        onWatchToggle={handleWatchToggle}
-                      />
-                    </div>
-                  ))}
-                </div>
-              </section>
-              <div className="section-divider" />
-            </>
-          )}
+                <span
+                  className="section-pill"
+                  style={{
+                    background: watchedSymbols.size > 0 ? "rgba(244,63,94,0.15)" : "rgba(75,85,99,0.2)",
+                    color: watchedSymbols.size > 0 ? "var(--accent-rose)" : "var(--text-muted)",
+                    transition: "all 0.3s ease",
+                  }}
+                >
+                  {watchedSymbols.size}
+                </span>
+              </div>
+            </div>
 
-          {/* Empty siguiendo state */}
-          {watchlistAssets.length === 0 && (
-            <>
-              <section className="trend-section" id="section-siguiendo-empty">
-                <div className="section-header">
-                  <div className="section-title">
-                    <span style={{ fontSize: "1.3rem" }}>★</span>
-                    <div>
-                      <h2 style={{ color: "var(--accent-rose)" }}>Siguiendo</h2>
-                      <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 2 }}>
-                        Tu lista de seguimiento personal
-                      </p>
-                    </div>
-                    <span className="section-pill" style={{ background: "rgba(75,85,99,0.2)", color: "var(--text-muted)" }}>0</span>
+            {watchlistAssets.length === 0 ? (
+              <div className="empty-state">
+                <div className="empty-state-icon">☆</div>
+                <p>Pulsa <strong>"☆ Seguir"</strong> en cualquier activo para añadirlo aquí al instante.</p>
+              </div>
+            ) : (
+              <div className="asset-grid">
+                {watchlistAssets.map((asset) => (
+                  <div key={asset.symbol} style={{ position: "relative" }}>
+                    {asset.structural_state !== "none" && (
+                      <div style={{
+                        position: "absolute", top: -8, right: 12, zIndex: 10,
+                        background: "rgba(0,212,170,0.15)",
+                        border: "1px solid rgba(0,212,170,0.35)",
+                        borderRadius: 20, padding: "2px 8px",
+                        fontSize: "0.62rem", fontWeight: 700,
+                        color: "var(--accent-emerald)",
+                      }}>
+                        📶 En tendencia activa
+                      </div>
+                    )}
+                    <AssetCard
+                      asset={asset}
+                      narrative={narrativeMap[asset.symbol] ?? null}
+                      history={historyMap[asset.symbol] ?? []}
+                      isWatched={true}
+                      onWatchToggle={handleWatchToggle}
+                    />
                   </div>
-                </div>
-                <div className="empty-state">
-                  <div className="empty-state-icon">☆</div>
-                  <p>Pulsa <strong>"Seguir"</strong> en cualquier activo para añadirlo aquí.</p>
-                </div>
-              </section>
-              <div className="section-divider" />
-            </>
-          )}
+                ))}
+              </div>
+            )}
+          </section>
 
-          {/* ─── TREND SECTIONS ──────────────────────────────────── */}
-          <TrendSection
-            phase="Emerging"
-            assets={filteredAssets}
-            narrativeMap={narrativeMap}
-            historyMap={historyMap}
-            watchedSymbols={watchedSymbols}
-            onWatchToggle={handleWatchToggle}
-          />
           <div className="section-divider" />
-          <TrendSection
-            phase="Confirmed"
-            assets={filteredAssets}
-            narrativeMap={narrativeMap}
-            historyMap={historyMap}
-            watchedSymbols={watchedSymbols}
-            onWatchToggle={handleWatchToggle}
-          />
+
+          {/* Trend sections — pass watchedSymbols so buttons reflect current state */}
+          <TrendSection phase="Emerging" assets={filteredAssets} narrativeMap={narrativeMap} historyMap={historyMap} watchedSymbols={watchedSymbols} onWatchToggle={handleWatchToggle} />
           <div className="section-divider" />
-          <TrendSection
-            phase="Structural"
-            assets={filteredAssets}
-            narrativeMap={narrativeMap}
-            historyMap={historyMap}
-            watchedSymbols={watchedSymbols}
-            onWatchToggle={handleWatchToggle}
-          />
+          <TrendSection phase="Confirmed" assets={filteredAssets} narrativeMap={narrativeMap} historyMap={historyMap} watchedSymbols={watchedSymbols} onWatchToggle={handleWatchToggle} />
+          <div className="section-divider" />
+          <TrendSection phase="Structural" assets={filteredAssets} narrativeMap={narrativeMap} historyMap={historyMap} watchedSymbols={watchedSymbols} onWatchToggle={handleWatchToggle} />
         </>
       )}
     </>
