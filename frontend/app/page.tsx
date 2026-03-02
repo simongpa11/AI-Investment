@@ -1,7 +1,8 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import { api, StructuralScore, NarrativeScore, ScoreHistory, PhaseSummary } from "@/lib/api";
+import { api, StructuralScore, NarrativeScore, ScoreHistory, PhaseSummary, WatchlistItem } from "@/lib/api";
 import { TrendSection } from "@/components/TrendSection";
+import { AssetCard } from "@/components/AssetCard";
 
 const STATE_FILTERS = [
   { key: "all", label: "Todos" },
@@ -17,6 +18,7 @@ export default function DashboardPage() {
   const [historyMap, setHistoryMap] = useState<Record<string, ScoreHistory[]>>({});
   const [summary, setSummary] = useState<PhaseSummary | null>(null);
   const [watchedSymbols, setWatchedSymbols] = useState<Set<string>>(new Set());
+  const [watchlistItems, setWatchlistItems] = useState<WatchlistItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [scanning, setScanning] = useState(false);
   const [stateFilter, setStateFilter] = useState("all");
@@ -36,17 +38,20 @@ export default function DashboardPage() {
       setAssets(assetList);
       setSummary(summaryRes);
 
-      // Build watched set
-      const watched = new Set<string>(
-        (watchlistRes.watchlist || []).map((w) => w.symbol)
-      );
+      const wItems = watchlistRes.watchlist || [];
+      setWatchlistItems(wItems);
+      const watched = new Set<string>(wItems.map((w) => w.symbol));
       setWatchedSymbols(watched);
 
-      // Fetch narratives and history for top 30 assets
+      // Fetch narratives and history for top 30 + watchlist symbols
+      const watchedInList = wItems.map(w => w.symbol);
       const top30 = assetList.slice(0, 30);
+      const allSymbols = Array.from(new Set([...top30.map(a => a.symbol), ...watchedInList]));
+      const allAssets = allSymbols.map(s => assetList.find(a => a.symbol === s)).filter(Boolean) as StructuralScore[];
+
       const [narResults, histResults] = await Promise.all([
-        Promise.all(top30.map((a) => api.getNarrative(a.symbol).catch(() => ({ symbol: a.symbol, narratives: [] })))),
-        Promise.all(top30.map((a) => api.getHistory(a.symbol, 30).catch(() => ({ symbol: a.symbol, history: [] })))),
+        Promise.all(allAssets.map((a) => api.getNarrative(a.symbol).catch(() => ({ symbol: a.symbol, narratives: [] })))),
+        Promise.all(allAssets.map((a) => api.getHistory(a.symbol, 30).catch(() => ({ symbol: a.symbol, history: [] })))),
       ]);
 
       const narMap: Record<string, NarrativeScore> = {};
@@ -74,13 +79,20 @@ export default function DashboardPage() {
       else next.delete(symbol);
       return next;
     });
+    // Update watchlist items list
+    setWatchlistItems((prev) => {
+      if (!watched) return prev.filter(i => i.symbol !== symbol);
+      return prev;
+    });
+    // After a short delay, reload data to get fresh watchlist
+    setTimeout(loadData, 500);
   };
 
   const handleScan = async () => {
     setScanning(true);
     try {
       await api.triggerFullScan();
-      setTimeout(loadData, 3000); // Reload after 3s
+      setTimeout(loadData, 3000);
     } catch (err) {
       console.error(err);
     } finally {
@@ -94,6 +106,16 @@ export default function DashboardPage() {
 
   const totalSignals = assets.filter((a) => a.structural_state !== "none").length;
 
+  // Build watchlist cards: get the full asset data for watched symbols
+  // Assets that are in watchlist but ALSO appear in the scanner → show in both sections
+  const watchlistAssets: StructuralScore[] = watchlistItems.map(item => {
+    const found = assets.find(a => a.symbol === item.symbol);
+    if (found) return found;
+    // If not in current scan (lost structure), use watchlist structural data
+    if (item.structural) return item.structural as StructuralScore;
+    return null;
+  }).filter(Boolean) as StructuralScore[];
+
   return (
     <>
       {/* Dashboard Header */}
@@ -105,44 +127,49 @@ export default function DashboardPage() {
 
         {/* Stats Row */}
         <div className="stats-row">
+          {/* 🔥 Emerging — amber */}
+          <div className="stat-chip">
+            <div className="stat-dot" style={{ background: "#F59E0B" }} />
+            <div>
+              <div className="stat-chip-value">{summary?.phases?.Emerging ?? "—"}</div>
+              <div className="stat-chip-label">🔥 Emerging</div>
+            </div>
+          </div>
+          {/* 🟢 Confirmed — emerald */}
           <div className="stat-chip">
             <div className="stat-dot" style={{ background: "var(--accent-emerald)" }} />
             <div>
-              <div className="stat-chip-value">{summary?.phases?.Emerging ?? "—"}</div>
-              <div className="stat-chip-label">Emerging</div>
-            </div>
-          </div>
-          <div className="stat-chip">
-            <div className="stat-dot" style={{ background: "var(--accent-indigo)" }} />
-            <div>
               <div className="stat-chip-value">{summary?.phases?.Confirmed ?? "—"}</div>
-              <div className="stat-chip-label">Confirmed</div>
+              <div className="stat-chip-label">🟢 Confirmed</div>
             </div>
           </div>
+          {/* 🔵 Structural — blue */}
           <div className="stat-chip">
             <div className="stat-dot" style={{ background: "var(--accent-blue)" }} />
             <div>
               <div className="stat-chip-value">{summary?.phases?.Structural ?? "—"}</div>
-              <div className="stat-chip-label">Structural</div>
+              <div className="stat-chip-label">🔵 Structural</div>
             </div>
           </div>
+          {/* Con estructura — indigo */}
           <div className="stat-chip">
-            <div className="stat-dot" style={{ background: "var(--accent-amber)" }} />
+            <div className="stat-dot" style={{ background: "var(--accent-indigo)" }} />
             <div>
               <div className="stat-chip-value">{totalSignals}</div>
               <div className="stat-chip-label">Con estructura</div>
             </div>
           </div>
+          {/* Siguiendo — rose */}
           <div className="stat-chip">
             <div className="stat-dot" style={{ background: "var(--accent-rose)" }} />
             <div>
               <div className="stat-chip-value">{watchedSymbols.size}</div>
-              <div className="stat-chip-label">Siguiendo</div>
+              <div className="stat-chip-label">★ Siguiendo</div>
             </div>
           </div>
 
           <button
-            className={`btn btn-primary btn-scan`}
+            className="btn btn-primary btn-scan"
             onClick={handleScan}
             disabled={scanning}
             id="btn-trigger-scan"
@@ -191,9 +218,92 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Trend Sections */}
       {!loading && (
         <>
+          {/* ─── SIGUIENDO SECTION ──────────────────────────────── */}
+          {watchlistAssets.length > 0 && (
+            <>
+              <section className="trend-section" id="section-siguiendo">
+                <div className="section-header">
+                  <div className="section-title">
+                    <span style={{ fontSize: "1.3rem" }}>★</span>
+                    <div>
+                      <h2 style={{ color: "var(--accent-rose)" }}>Siguiendo</h2>
+                      <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 2 }}>
+                        Activos en tu watchlist · Nunca desaparecen, solo cambian de estado
+                      </p>
+                    </div>
+                    <span
+                      className="section-pill"
+                      style={{ background: "rgba(244,63,94,0.15)", color: "var(--accent-rose)" }}
+                    >
+                      {watchlistAssets.length}
+                    </span>
+                  </div>
+                </div>
+                <div className="asset-grid">
+                  {watchlistAssets.map((asset) => (
+                    <div key={asset.symbol} style={{ position: "relative" }}>
+                      {/* "También en tendencia" badge if it appears in a trending phase */}
+                      {asset.structural_state !== "none" && (
+                        <div style={{
+                          position: "absolute",
+                          top: -8,
+                          right: 12,
+                          zIndex: 10,
+                          background: "rgba(0,212,170,0.15)",
+                          border: "1px solid rgba(0,212,170,0.35)",
+                          borderRadius: 20,
+                          padding: "2px 8px",
+                          fontSize: "0.65rem",
+                          fontWeight: 700,
+                          color: "var(--accent-emerald)",
+                          letterSpacing: "0.04em",
+                        }}>
+                          📶 En tendencia activa
+                        </div>
+                      )}
+                      <AssetCard
+                        asset={asset}
+                        narrative={narrativeMap[asset.symbol] ?? null}
+                        history={historyMap[asset.symbol] ?? []}
+                        isWatched={true}
+                        onWatchToggle={handleWatchToggle}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </section>
+              <div className="section-divider" />
+            </>
+          )}
+
+          {/* Empty siguiendo state */}
+          {watchlistAssets.length === 0 && (
+            <>
+              <section className="trend-section" id="section-siguiendo-empty">
+                <div className="section-header">
+                  <div className="section-title">
+                    <span style={{ fontSize: "1.3rem" }}>★</span>
+                    <div>
+                      <h2 style={{ color: "var(--accent-rose)" }}>Siguiendo</h2>
+                      <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 2 }}>
+                        Tu lista de seguimiento personal
+                      </p>
+                    </div>
+                    <span className="section-pill" style={{ background: "rgba(75,85,99,0.2)", color: "var(--text-muted)" }}>0</span>
+                  </div>
+                </div>
+                <div className="empty-state">
+                  <div className="empty-state-icon">☆</div>
+                  <p>Pulsa <strong>"Seguir"</strong> en cualquier activo para añadirlo aquí.</p>
+                </div>
+              </section>
+              <div className="section-divider" />
+            </>
+          )}
+
+          {/* ─── TREND SECTIONS ──────────────────────────────────── */}
           <TrendSection
             phase="Emerging"
             assets={filteredAssets}
