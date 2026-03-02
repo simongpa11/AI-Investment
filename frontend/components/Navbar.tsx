@@ -46,6 +46,9 @@ export function Navbar() {
                 <Link href="/watchlist" className={`nav-link ${pathname === "/watchlist" ? "active" : ""}`}>
                     Watchlist
                 </Link>
+                <Link href="/docs" className={`nav-link ${pathname === "/docs" ? "active" : ""}`} style={{ opacity: 0.7 }}>
+                    Docs
+                </Link>
             </div>
             <div className="navbar-actions">
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
