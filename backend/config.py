@@ -16,22 +16,13 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 # Finnhub
 FINNHUB_API_KEY = os.getenv("FINNHUB_API_KEY", "d6iq2mhr01qleu953o0gd6iq2mhr01qleu953o10")
 
-# Scanner settings
-SCAN_UNIVERSE = [
-    # Top S&P 500 tech / mega cap
-    "AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "META", "TSLA", "AVGO", "BRK-B",
-    "JPM", "LLY", "V", "UNH", "XOM", "MA", "JNJ", "PG", "HD", "COST", "ABBV",
-    "WMT", "MRK", "BAC", "CVX", "NFLX", "AMD", "CRM", "ORCL", "KO", "PEP",
-    "ACN", "TMO", "LIN", "MCD", "CSCO", "ABT", "GE", "INTU", "IBM", "DIS",
-    "VZ", "RTX", "NEE", "ADBE", "QCOM", "TXN", "PM", "HON", "CAT", "GS",
-    # Growth & momentum favorites
-    "PLTR", "SNOW", "COIN", "MSTR", "IREN", "ASTS", "SBET", "RXRX", "IOT",
-    "AFRM", "SOFI", "HOOD", "SMCI", "ARM", "ASML", "TSM", "BABA", "JD",
-    # ETFs for sector rotation signals
-    "XLK", "XLF", "XLE", "XLV", "XLI", "XLC", "XLY", "XLP", "XLB", "XLRE",
-    # Crypto proxies
-    "MARA", "RIOT", "HUT",
-]
+SCAN_UNIVERSE_SOURCE = "russell3000 + stoxx600"
+
+FILTERS = {
+    "min_price": 3,
+    "min_avg_volume": 500000,
+    "min_market_cap": 200_000_000
+}
 
 # Sector ETF mapping for relative strength
 SECTOR_ETFS = {

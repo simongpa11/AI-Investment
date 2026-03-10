@@ -102,20 +102,31 @@ export function AssetCard({
                     </div>
                 </div>
 
-                {/* Duration */}
+                {/* Duration & Signals */}
                 <div className="duration-chip">
-                    <span>⏱</span>
-                    <span>{asset.duration_days}d activo</span>
-                    {asset.volume_change_ratio > 1.2 && (
+                    <span>⏱ {asset.duration_days}d activo</span>
+                    {asset.volume_spike_ratio > 1.4 && (
                         <>
-                            <span style={{ color: "var(--text-muted)" }}>·</span>
-                            <span style={{ color: "var(--accent-amber)" }}>Vol ×{asset.volume_change_ratio.toFixed(1)}</span>
+                            <span style={{ color: "var(--text-muted)", margin: "0 4px" }}>•</span>
+                            <span style={{ color: "var(--accent-amber)" }} title="Anomalous Volume Spike vs 30d">
+                                Vol ×{asset.volume_spike_ratio.toFixed(1)}
+                            </span>
+                        </>
+                    )}
+                    {asset.distance_from_52w_high !== undefined && asset.distance_from_52w_high < 0.15 && (
+                        <>
+                            <span style={{ color: "var(--text-muted)", margin: "0 4px" }}>•</span>
+                            <span style={{ color: "var(--accent-emerald)" }} title="Near 52-week High (Breakout zone)">
+                                🏔️ {(asset.distance_from_52w_high * 100).toFixed(1)}% 52W High
+                            </span>
                         </>
                     )}
                     {asset.volatility_compression_days >= 20 && (
                         <>
-                            <span style={{ color: "var(--text-muted)" }}>·</span>
-                            <span style={{ color: "var(--accent-indigo)" }}>Compresión {asset.volatility_compression_days}d</span>
+                            <span style={{ color: "var(--text-muted)", margin: "0 4px" }}>•</span>
+                            <span style={{ color: "var(--accent-indigo)" }}>
+                                Comp. {asset.volatility_compression_days}d
+                            </span>
                         </>
                     )}
                 </div>

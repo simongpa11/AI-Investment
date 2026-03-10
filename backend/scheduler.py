@@ -11,9 +11,9 @@ from datetime import date
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
-from config import SCAN_UNIVERSE
 from modules.scanner import run_full_scan
 from modules.narrative import scan_narrative
+from modules.universe import build_filtered_universe
 from db.supabase_client import (
     upsert_structural_score,
     upsert_narrative_score,
@@ -26,28 +26,38 @@ scheduler = AsyncIOScheduler(timezone="Europe/Madrid")
 # ─── SCAN JOBS ────────────────────────────────────────────────────────────────
 
 async def _run_structural():
-    """Run structural scan and persist scores. Returns results list."""
+    """Run structural scan and persist scores. Returns results list sorted by technical score."""
     from db.supabase_client import get_watchlist
     
-    # Combine default universe with user's active watchlist
+    # Check universe + user watchlist
     wl_res = await get_watchlist()
     wl_symbols = [item["symbol"] for item in (wl_res.data or [])]
-    all_symbols = list(set(SCAN_UNIVERSE + wl_symbols))
     
+    # 1. Fetch dynamic filtered universe
+    base_universe = await build_filtered_universe()
+    all_symbols = list(set(base_universe + wl_symbols))
+    
+    logger.info(f"Starting structural scan on complete universe ({len(all_symbols)} symbols)...")
     loop = asyncio.get_event_loop()
     results = await loop.run_in_executor(None, run_full_scan, all_symbols)
+    
     for r in results:
         try:
             await upsert_structural_score(r)
         except Exception as e:
             logger.error(f"DB error structural {r['symbol']}: {e}")
+            
     return results
 
 
-async def _run_narrative(structural_results: list, save_history: bool = False):
-    """Run narrative scan for all symbols. Optionally saves score history snapshot."""
-    logger.info(f"📰 Narrative scan — {len(structural_results)} symbols (history={save_history})")
-    for result in structural_results:
+async def _run_narrative(structural_results: list, save_history: bool = False, top_n: int = 50):
+    """Run narrative scan for top N symbols to save API costs. Optionally saves score history snapshot."""
+    
+    # Only scan the top N from the technical results
+    top_candidates = structural_results[:top_n]
+    logger.info(f"📰 Narrative scan started — Top {len(top_candidates)} symbols (history={save_history})")
+    
+    for result in top_candidates:
         symbol = result["symbol"]
         name = result.get("name", symbol)
         try:
@@ -58,7 +68,11 @@ async def _run_narrative(structural_results: list, save_history: bool = False):
                 if save_history:
                     narrative_score = narrative.get("narrative_persistence_score", 0)
                     struct_score = result["trend_persistence_score"]
-                    combined = int(struct_score * 0.65 + narrative_score * 0.35)
+                    # New formula: 90% technical framework (which is internally 0.5 momentum + 0.3 rs + 0.2 volume), 10% narrative
+                    combined = int(struct_score * 0.90 + narrative_score * 0.10)
+                    
+                    # Ensure trend_score fields make it to the asset's main record via an update or view, 
+                    # but for history we store the combined:
                     await insert_score_history({
                         "symbol": symbol,
                         "date": result["date"],

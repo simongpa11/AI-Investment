@@ -16,6 +16,8 @@ export interface StructuralScore {
     current_price: number;
     ma50: number;
     ma200: number;
+    distance_from_52w_high: number;
+    volume_spike_ratio: number;
     details_json?: Record<string, unknown>;
     narrative?: NarrativeScore | null;
 }
@@ -95,6 +97,9 @@ export const api = {
     getNarrative: (symbol: string) =>
         apiFetch<{ symbol: string; narratives: NarrativeScore[] }>(`/api/assets/${symbol}/narrative`),
 
+    getCandles: (symbol: string, timeframe: string = "1M") =>
+        apiFetch<{ symbol: string; data: any[] }>(`/api/assets/${symbol}/candles?timeframe=${timeframe}`),
+
     rescan: (symbol: string) => apiPost(`/api/assets/rescan/${symbol}`),
 
     triggerFullScan: () => apiPost("/api/scan/run"),
@@ -111,6 +116,11 @@ export const api = {
             score_history: ScoreHistory[];
             narrative_history: NarrativeScore[];
         }>(`/api/watchlist/${symbol}/dossier`),
+
+    search: (query: string) =>
+        apiFetch<{ data: Array<{ description: string; displaySymbol: string; symbol: string; type: string }> }>(
+            `/api/assets/search?q=${encodeURIComponent(query)}`
+        ),
 };
 
 export async function triggerManualScan(symbol: string): Promise<any> {
@@ -141,7 +151,7 @@ export const STATE_EMOJIS: Record<string, string> = {
 };
 
 export function getCombinedScore(structural: number, narrative: number): number {
-    return Math.round(structural * 0.65 + narrative * 0.35);
+    return Math.round(structural * 0.90 + narrative * 0.10);
 }
 
 export function getSignalStrength(structural: number, narrative: number, duration: number) {

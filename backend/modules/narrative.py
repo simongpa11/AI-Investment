@@ -197,12 +197,15 @@ def compute_narrative_persistence_score(
 
         # Tone trend
         tone_trend = gemini_result.get("tone_trend", "stable")
-        if tone_trend == "improving":
+        tone = gemini_result.get("tone", "neutral")
+        if tone_trend == "improving" or tone == "alcista":
             tone_score = 15
-        elif tone_trend == "stable" and gemini_result.get("tone") == "bullish":
-            tone_score = 10
-        elif tone_trend == "stable":
+        elif tone_trend == "stable" and tone == "neutral":
             tone_score = 5
+            
+        # Emerging narrative bonus
+        if gemini_result.get("emerging_narrative", False):
+            theme_score += 10
 
         # Language penalty for hype
         lang = gemini_result.get("language_quality", "balanced")
@@ -257,6 +260,7 @@ async def scan_narrative(symbol: str, name: str = "") -> Optional[dict]:
         "source_quality": persistence["source_quality"],
         "tone_change": persistence["tone_trend"],
         "summary_ai": summary_ai,
+        "emerging_narrative": gemini_result.get("emerging_narrative", False) if gemini_result else False,
         "article_count": persistence["article_count"],
         "details_json": {
             "persistence": persistence,

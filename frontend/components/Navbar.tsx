@@ -54,7 +54,7 @@ export function Navbar() {
                     Mis posiciones
                 </Link>
                 <Link href="/" className={`nav-link ${pathname === "/" ? "active" : ""}`}>
-                    Dashboard
+                    Scanner
                 </Link>
                 <Link href="/watchlist" className={`nav-link ${pathname === "/watchlist" ? "active" : ""}`}>
                     Siguiendo

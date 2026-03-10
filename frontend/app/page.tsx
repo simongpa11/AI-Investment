@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { api, triggerManualScan, StructuralScore, NarrativeScore, ScoreHistory, PhaseSummary, WatchlistItem } from "@/lib/api";
 import { TrendSection } from "@/components/TrendSection";
 import { AssetCard } from "@/components/AssetCard";
@@ -24,6 +24,52 @@ export default function DashboardPage() {
   // Manual Scan state
   const [manualTicker, setManualTicker] = useState("");
   const [isManualScanning, setIsManualScanning] = useState(false);
+
+  // Autocomplete Search state
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const handleSearchInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setManualTicker(val);
+
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+
+    if (val.length < 2) {
+      setSearchResults([]);
+      setShowDropdown(false);
+      return;
+    }
+
+    setShowDropdown(true);
+    setIsSearching(true);
+
+    searchTimeoutRef.current = setTimeout(async () => {
+      try {
+        const res = await api.search(val);
+        // Filter primarily to stocks/ETFs if possible, or keep all
+        setSearchResults((res.data || []).slice(0, 10));
+      } catch (err) {
+        console.error("Search API error", err);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 400); // 400ms debounce
+  };
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -232,24 +278,92 @@ export default function DashboardPage() {
               </div>
 
               <form onSubmit={handleManualScan} className="manual-scan-form" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <input
-                  type="text"
-                  placeholder="Añadir Ticker (ej: PLTR)"
-                  value={manualTicker}
-                  onChange={e => setManualTicker(e.target.value)}
-                  disabled={isManualScanning}
-                  style={{
-                    padding: '8px 12px',
-                    borderRadius: 6,
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    background: 'rgba(0,0,0,0.2)',
-                    color: 'white',
-                    fontSize: '0.875rem',
-                    width: '180px',
-                    outline: 'none',
-                    transition: 'border-color 0.2s ease',
-                  }}
-                />
+                <div style={{ position: "relative" }} ref={dropdownRef}>
+                  <input
+                    type="text"
+                    placeholder="Buscar empresa o ticker (ej: PLTR)"
+                    value={manualTicker}
+                    onChange={handleSearchInput}
+                    disabled={isManualScanning}
+                    autoComplete="off"
+                    style={{
+                      padding: "8px 12px",
+                      borderRadius: 6,
+                      border: "1px solid rgba(255,255,255,0.1)",
+                      background: "rgba(0,0,0,0.2)",
+                      color: "white",
+                      fontSize: "0.875rem",
+                      width: "240px",
+                      outline: "none",
+                      transition: "border-color 0.2s ease",
+                    }}
+                  />
+
+                  {/* Autocomplete Dropdown */}
+                  {showDropdown && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: "100%",
+                        left: 0,
+                        right: 0,
+                        marginTop: 4,
+                        background: "var(--bg-glass)",
+                        backdropFilter: "blur(12px)",
+                        WebkitBackdropFilter: "blur(12px)",
+                        border: "1px solid rgba(255,255,255,0.1)",
+                        borderRadius: 8,
+                        boxShadow: "0 4px 12px rgba(0,0,0,0.5)",
+                        maxHeight: "250px",
+                        overflowY: "auto",
+                        zIndex: 50,
+                      }}
+                    >
+                      {isSearching ? (
+                        <div style={{ padding: "12px", fontSize: "0.8rem", color: "var(--text-muted)", textAlign: "center" }}>
+                          Buscando...
+                        </div>
+                      ) : searchResults.length > 0 ? (
+                        <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
+                          {searchResults.map((item, idx) => (
+                            <li
+                              key={idx}
+                              onClick={() => {
+                                setManualTicker(item.symbol);
+                                setShowDropdown(false);
+                              }}
+                              style={{
+                                padding: "10px 12px",
+                                borderBottom: idx < searchResults.length - 1 ? "1px solid rgba(255,255,255,0.05)" : "none",
+                                cursor: "pointer",
+                                transition: "background 0.2s ease",
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: 2,
+                              }}
+                              onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.05)")}
+                              onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                            >
+                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                <strong style={{ color: "var(--text-primary)", fontSize: "0.875rem" }}>{item.symbol}</strong>
+                                <span style={{ fontSize: "0.7rem", color: "var(--text-muted)", background: "rgba(255,255,255,0.1)", padding: "2px 6px", borderRadius: 4 }}>
+                                  {item.type}
+                                </span>
+                              </div>
+                              <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                {item.description}
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <div style={{ padding: "12px", fontSize: "0.8rem", color: "var(--text-muted)", textAlign: "center" }}>
+                          No se encontraron resultados
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
                 <button
                   type="submit"
                   disabled={isManualScanning || !manualTicker.trim()}

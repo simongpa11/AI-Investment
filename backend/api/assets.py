@@ -1,4 +1,5 @@
 import httpx
+import yfinance as yf
 from fastapi import APIRouter, Query, HTTPException
 from config import FINNHUB_API_KEY
 from db.supabase_client import (
@@ -16,9 +17,25 @@ router = APIRouter(prefix="/api/assets", tags=["assets"])
 @router.get("/dashboard")
 async def get_dashboard_assets(limit: int = Query(50, le=100)):
     """Return top assets with their latest narrative score merged in (2 queries total)."""
-    # 1. Get top structural
-    struct_res = await get_structural_scores(limit=limit)
-    struct_data = struct_res.data or []
+    struct_res = await get_structural_scores(limit=200) # Increased limit to ensure we get a good pool before dedup
+    raw_struct_data = struct_res.data or []
+    if not raw_struct_data:
+        return {"data": []}
+
+    # Dedup structural scores: keep only the newest per symbol
+    struct_map = {}
+    for item in raw_struct_data:
+        sym = item["symbol"]
+        if sym not in struct_map or str(item["date"]) > str(struct_map[sym]["date"]):
+            struct_map[sym] = item
+            
+    struct_data = list(struct_map.values())
+    
+    # Optionally sort them by score or let frontend handle it
+    struct_data.sort(key=lambda x: x.get("trend_persistence_score", 0), reverse=True)
+    if limit:
+        struct_data = struct_data[:limit]
+        
     if not struct_data:
         return {"data": []}
 
@@ -32,7 +49,8 @@ async def get_dashboard_assets(limit: int = Query(50, le=100)):
     nar_map = {}
     for n in (nar_res.data or []):
         sym = n["symbol"]
-        if sym not in nar_map or n["date"] > nar_map[sym]["date"]:
+        # n["date"] is a string (e.g., '2026-03-05'), we can just string compare or store the latest
+        if sym not in nar_map or str(n["date"]) > str(nar_map[sym]["date"]):
             nar_map[sym] = n
 
     # 3. Merge
@@ -79,6 +97,44 @@ async def get_asset_narrative(symbol: str):
     """Return latest narrative scores for a symbol."""
     result = await get_narrative_scores(symbol.upper())
     return {"symbol": symbol.upper(), "narratives": result.data or []}
+
+
+@router.get("/{symbol}/candles")
+async def get_asset_candles(symbol: str, timeframe: str = Query("1M", description="1D, 1S, 1M, 1A, MAX")):
+    """Return historical prices for the structural evolution chart."""
+    try:
+        period_map = {
+            "1D": "1d",
+            "1S": "5d",
+            "1M": "1mo",
+            "1A": "1y",
+            "MAX": "max"
+        }
+        period = period_map.get(timeframe.upper(), "1mo")
+        interval = "1d"
+        if period == "1d":
+            interval = "5m"
+        elif period == "5d":
+            interval = "30m"
+            
+        ticker = yf.Ticker(symbol)
+        df = ticker.history(period=period, interval=interval)
+        
+        if df.empty:
+            return {"symbol": symbol.upper(), "data": []}
+            
+        df = df.reset_index()
+        col_name = "Date" if "Date" in df.columns else "Datetime"
+        if col_name in df.columns:
+            if interval != "1d":
+                df["date"] = df[col_name].dt.strftime("%Y-%m-%d %H:%M")
+            else:
+                df["date"] = df[col_name].dt.strftime("%Y-%m-%d")
+                
+        result = df[["date", "Open", "High", "Low", "Close", "Volume"]].rename(columns=str.lower).to_dict(orient="records")
+        return {"symbol": symbol.upper(), "data": result}
+    except Exception as e:
+        return {"symbol": symbol.upper(), "data": [], "error": str(e)}
 
 
 @router.post("/rescan/{symbol}")

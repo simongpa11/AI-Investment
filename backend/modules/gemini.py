@@ -32,27 +32,25 @@ Given the following news articles about {symbol} ({name}):
 
 Analyze these articles and return a JSON object with EXACTLY this structure:
 {{
-  "narrative_type": "earnings|M&A|innovation|regulatory|macro|guidance|product|rumor|analyst|other",
+  "narrative_type": "resultados financieros|nuevos contratos|regulación|innovación tecnológica|rumor / hype|análisis de mercado|other",
   "language_quality": "technical|balanced|hype",
   "strategic_plausibility": 8,
-  "tone": "bullish|neutral|bearish",
+  "tone": "alcista|neutral|bajista",
   "key_themes": ["theme1", "theme2", "theme3"],
+  "emerging_narrative": true,
   "tone_trend": "improving|stable|deteriorating",
-  "summary": "One concise sentence summarizing the narrative and its investment relevance.",
-  "hype_indicators": [],
-  "catalyst_type": "earnings|product|partnership|market|none"
+  "summary": "One concise sentence summarizing the narrative and its investment relevance."
 }}
 
 Guidelines:
-- narrative_type: dominant story type
+- narrative_type: dominant story type (must be one of the exact options provided)
 - language_quality: technical=data-driven, balanced=mix, hype=emotional/speculative
 - strategic_plausibility: 1-10 (10=very credible)
-- tone: overall sentiment
-- tone_trend: improving or worsening vs older articles?
-- summary: 1 sentence max 120 chars, investment-relevant
-- hype_indicators: exact hype phrases found, or empty list
+- tone: overall sentiment (alcista, neutral, bajista)
+- emerging_narrative: true if this is a newly forming story not yet fully priced in
+- summary: 1 sentence max 120 chars, in Spanish, investment-relevant
 
-Return ONLY valid JSON, no markdown fences, no explanation.
+Return ONLY valid JSON format, no markdown fences, no explanation.
 """
 
 SECTOR_SUMMARY_PROMPT = """
@@ -92,11 +90,10 @@ async def analyze_narrative(symbol: str, name: str, articles: list) -> Optional[
     try:
         client = get_client()
         response = client.models.generate_content(
-            model="gemini-1.5-flash",
+            model="gemini-2.5-flash",
             contents=prompt,
             config=types.GenerateContentConfig(
                 temperature=0.1,
-                max_output_tokens=800,
             ),
         )
         text = response.text.strip() if response.text else ""
@@ -130,7 +127,7 @@ async def analyze_sector_narrative(sector: str, summaries: list) -> Optional[dic
     try:
         client = get_client()
         response = client.models.generate_content(
-            model="gemini-1.5-flash",
+            model="gemini-2.5-flash",
             contents=prompt,
         )
         text = response.text.strip() if response.text else ""

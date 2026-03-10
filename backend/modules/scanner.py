@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 import yfinance as yf
 
-from config import SECTOR_ETFS, SCAN_UNIVERSE
+from config import SECTOR_ETFS, SCAN_UNIVERSE_SOURCE
 
 logger = logging.getLogger(__name__)
 
@@ -99,6 +99,11 @@ def compute_volume_regime(df: pd.DataFrame) -> dict:
         # Increasing week over week
         weekly_trend = ((w1 / w2) + (w2 / w3) + (w3 / w4)) / 3 - 1
     acceleration = w1 > w2 > w3 and ratio > 1.2
+    
+    # 30-day volume spike ratio
+    vol_30d_avg = df["Volume"].iloc[-30:].mean()
+    current_vol = df["Volume"].iloc[-1]
+    volume_spike_ratio = current_vol / vol_30d_avg if vol_30d_avg > 0 else 1.0
 
     return {
         "ratio": float(round(ratio, 3)),
@@ -106,6 +111,7 @@ def compute_volume_regime(df: pd.DataFrame) -> dict:
         "weekly_trend": float(round(weekly_trend, 4)),
         "recent_avg_vol": float(recent_avg),
         "baseline_avg_vol": float(baseline_avg),
+        "volume_spike_ratio": float(round(volume_spike_ratio, 2)),
     }
 
 
@@ -194,28 +200,49 @@ def compute_ma_health(df: pd.DataFrame) -> dict:
             break
 
     # Price resilience: after corrections > 5%, did price recover?
-    close = df["Close"].values
+    close_vals = df["Close"].values
     resilience_score = 0
     corrections = 0
-    for i in range(10, len(close) - 5):
-        peak = max(close[max(0, i - 10):i])
-        if close[i] < peak * 0.95:
+    for i in range(10, len(close_vals) - 5):
+        peak = max(close_vals[max(0, i - 10):i])
+        if close_vals[i] < peak * 0.95:
             corrections += 1
             # Check if recovered within 10 bars
-            future = close[i : min(i + 15, len(close))]
+            future = close_vals[i : min(i + 15, len(close_vals))]
             if len(future) > 0 and max(future) >= peak * 0.97:
                 resilience_score += 1
     resilience_pct = resilience_score / corrections if corrections > 0 else 0.5
 
+    # Momentum Checks
+    current_price = df["Close"].iloc[-1]
+    ma50_val = df["ma50"].iloc[-1]
+    ma200_val = df["ma200"].iloc[-1]
+    
+    price_above_ma50 = current_price > ma50_val
+    ma50_above_ma200 = ma50_val > ma200_val
+    
+    # Breakout Detection
+    high_52w = df["High"].iloc[-252:].max() if len(df) >= 252 else df["High"].max()
+    high_6m = df["High"].iloc[-126:].max() if len(df) >= 126 else df["High"].max()
+    
+    distance_from_52w_high = (high_52w - current_price) / current_price if current_price > 0 else 0.0
+    breakout_6m = current_price >= high_6m * 0.98  # Within 2% of 6m high
+    breakout_52w = current_price >= high_52w * 0.98 # Within 2% of 52w high
+
     return {
-        "above_50ma": bool(df["Close"].iloc[-1] > df["ma50"].iloc[-1]),
-        "above_200ma": bool(df["Close"].iloc[-1] > df["ma200"].iloc[-1]),
+        "above_50ma": bool(price_above_ma50),
+        "above_200ma": bool(current_price > ma200_val),
         "streak_50": int(streak_50),
         "streak_200": int(streak_200),
-        "ma50": float(round(df["ma50"].iloc[-1], 3)),
-        "ma200": float(round(df["ma200"].iloc[-1], 3)),
-        "price": float(round(df["Close"].iloc[-1], 3)),
+        "ma50": float(round(ma50_val, 3)),
+        "ma200": float(round(ma200_val, 3)),
+        "price": float(round(current_price, 3)),
         "resilience_pct": float(round(resilience_pct, 3)),
+        "price_above_ma50": bool(price_above_ma50),
+        "ma50_above_ma200": bool(ma50_above_ma200),
+        "distance_from_52w_high": float(round(distance_from_52w_high, 4)),
+        "breakout_6m": bool(breakout_6m),
+        "breakout_52w": bool(breakout_52w),
     }
 
 
@@ -260,60 +287,69 @@ def compute_trend_persistence_score(
     volume: dict, compression: dict, ma: dict, rs: dict
 ) -> int:
     """
-    Score components (0-100):
-    - Consecutive days above 50MA: max 25 pts
-    - Consecutive days above 200MA: max 20 pts
-    - Volume regime change + acceleration: max 20 pts
-    - Price resilience: max 15 pts
-    - Relative strength vs sector: max 20 pts
+    Score components (0-100 technical base):
+    - Momentum (50%): distance from 52w high, price > MA50, MA50 > MA200, streaks.
+    - Relative Strength (30%): outperformance vs market ETF.
+    - Volume Spike (20%): anomalous volume ratio.
+    
+    The narrative score (10%) will be added later in the pipeline.
     """
-    score = 0.0
+    momentum_score = 0
+    rs_score = 0
+    volume_score = 0
 
-    # MA streaks (25 pts)
-    streak_50_pts = min(ma.get("streak_50", 0) / 40 * 25, 25)
-    score += streak_50_pts
+    # 1. Momentum (0 - 100) -> 50%
+    if ma.get("above_50ma", False):
+        momentum_score += 20
+    if ma.get("above_200ma", False):
+        momentum_score += 15
+    if ma.get("ma50_above_ma200", False):
+        momentum_score += 15
+        
+    streak_50_pts = min(ma.get("streak_50", 0) / 40 * 15, 15)
+    momentum_score += streak_50_pts
+    streak_200_pts = min(ma.get("streak_200", 0) / 60 * 15, 15)
+    momentum_score += streak_200_pts
+    
+    dist_52w = ma.get("distance_from_52w_high", 1.0)
+    # Reward closeness to 52w high: if within 10%, give max 20 pts
+    if dist_52w < 0.10:
+        momentum_score += 20
+    elif dist_52w < 0.25:
+        momentum_score += 10
+    elif dist_52w < 0.50:
+        momentum_score += 5
+        
+    momentum_score = min(momentum_score, 100)
 
-    # 200MA streak (20 pts)
-    streak_200_pts = min(ma.get("streak_200", 0) / 60 * 20, 20)
-    score += streak_200_pts
-
-    # Volume regime (20 pts)
-    ratio = volume.get("ratio", 1.0)
-    vol_pts = 0
-    if ratio >= 2.0:
-        vol_pts = 20
-    elif ratio >= 1.6:
-        vol_pts = 16
-    elif ratio >= 1.4:
-        vol_pts = 12
-    elif ratio >= 1.2:
-        vol_pts = 7
-    elif ratio >= 1.0:
-        vol_pts = 3
-    if volume.get("acceleration", False):
-        vol_pts = min(vol_pts + 5, 20)
-    score += vol_pts
-
-    # Resilience (15 pts)
-    resilience = ma.get("resilience_pct", 0.5)
-    score += resilience * 15
-
-    # RS vs sector (20 pts)
+    # 2. Relative Strength (0 - 100) -> 30%
     rs20 = rs.get("rs_20d", 0)
-    rs_pts = 0
-    if rs20 > 0.05:
-        rs_pts = 20
+    if rs20 > 0.10:
+        rs_score = 100
+    elif rs20 > 0.05:
+        rs_score = 75
     elif rs20 > 0.02:
-        rs_pts = 15
+        rs_score = 50
     elif rs20 > 0.0:
-        rs_pts = 8
-    elif rs20 > -0.02:
-        rs_pts = 4
+        rs_score = 25
+        
     if rs.get("rs_accelerating", False):
-        rs_pts = min(rs_pts + 5, 20)
-    score += rs_pts
+        rs_score = min(rs_score + 25, 100)
 
-    return int(min(max(score, 0), 100))
+    # 3. Volume Spike (0 - 100) -> 20%
+    vol_spike = volume.get("volume_spike_ratio", 1.0)
+    if vol_spike >= 3.0:
+        volume_score = 100
+    elif vol_spike >= 2.0:
+        volume_score = 75
+    elif vol_spike >= 1.5:
+        volume_score = 50
+    elif vol_spike >= 1.2:
+        volume_score = 25
+        
+    # Final technical calculation
+    total_score = (0.50 * momentum_score) + (0.30 * rs_score) + (0.20 * volume_score)
+    return int(min(max(total_score, 0), 100))
 
 
 # ──────────────────────────────────────────────
@@ -415,7 +451,7 @@ def scan_symbol(symbol: str) -> Optional[dict]:
         "date": today,
         "name": info["name"],
         "sector": info["sector"],
-        "trend_persistence_score": score,
+        "trend_persistence_score": score,  # Now strictly the technical trend score
         "structural_state": state,
         "phase": phase,
         "duration_days": duration,
@@ -425,6 +461,8 @@ def scan_symbol(symbol: str) -> Optional[dict]:
         "current_price": ma.get("price", 0),
         "ma50": ma.get("ma50", 0),
         "ma200": ma.get("ma200", 0),
+        "distance_from_52w_high": ma.get("distance_from_52w_high", 0),
+        "volume_spike_ratio": volume.get("volume_spike_ratio", 1.0),
         "details_json": {
             "volume": volume,
             "compression": compression,
