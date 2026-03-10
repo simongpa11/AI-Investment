@@ -1,0 +1,43 @@
+name: Scheduled API Scans
+
+on:
+  schedule:
+    # 08:00 CET = 07:00 UTC (Winter)
+    - cron: '0 7 * * *'
+    # 18:45 CET = 17:45 UTC (Winter)
+    - cron: '45 17 * * *'
+    # 22:45 CET = 21:45 UTC (Winter)
+    - cron: '45 21 * * *'
+  workflow_dispatch:
+    inputs:
+      scan_type:
+        description: 'Type of scan to run manually'
+        required: true
+        default: 'eod'
+        type: choice
+        options:
+        - morning
+        - afternoon
+        - eod
+
+jobs:
+  run-scans:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Morning Scan
+        if: github.event.schedule == '0 7 * * *' || (github.event_name == 'workflow_dispatch' && github.event.inputs.scan_type == 'morning')
+        run: |
+          echo "Triggering morning scan..."
+          curl -X POST "${{ secrets.RENDER_API_URL }}/api/scan/morning"
+          
+      - name: Trigger Afternoon Scan
+        if: github.event.schedule == '45 17 * * *' || (github.event_name == 'workflow_dispatch' && github.event.inputs.scan_type == 'afternoon')
+        run: |
+          echo "Triggering afternoon scan..."
+          curl -X POST "${{ secrets.RENDER_API_URL }}/api/scan/afternoon"
+
+      - name: Trigger EOD Scan
+        if: github.event.schedule == '45 21 * * *' || (github.event_name == 'workflow_dispatch' && github.event.inputs.scan_type == 'eod')
+        run: |
+          echo "Triggering EOD scan..."
+          curl -X POST "${{ secrets.RENDER_API_URL }}/api/scan/eod"

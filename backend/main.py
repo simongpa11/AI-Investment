@@ -66,6 +66,33 @@ async def trigger_scan():
     return {"message": "Scan triggered in background"}
 
 
+@app.post("/api/scan/morning")
+async def trigger_scan_morning():
+    """Trigger the morning scan."""
+    import asyncio
+    from scheduler import scan_morning
+    asyncio.create_task(scan_morning())
+    return {"message": "Morning scan triggered in background"}
+
+
+@app.post("/api/scan/afternoon")
+async def trigger_scan_afternoon():
+    """Trigger the afternoon scan."""
+    import asyncio
+    from scheduler import scan_afternoon
+    asyncio.create_task(scan_afternoon())
+    return {"message": "Afternoon scan triggered in background"}
+
+
+@app.post("/api/scan/eod")
+async def trigger_scan_eod():
+    """Trigger the EOD scan."""
+    import asyncio
+    from scheduler import scan_eod
+    asyncio.create_task(scan_eod())
+    return {"message": "EOD scan triggered in background"}
+
+
 @app.post("/api/scan/manual/{symbol}")
 async def trigger_manual_scan(symbol: str):
     """Manually scan a single symbol, save its history, and add it to watchlist."""
