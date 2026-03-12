@@ -209,9 +209,9 @@ export function DossierModal({ asset, narrative, onClose }: DossierModalProps) {
                     {/* Score row */}
                     <div style={{ display: "flex", gap: 20, marginTop: 20 }}>
                         {[
-                            { label: "Structural", value: asset.trend_persistence_score, color: stateColor },
-                            { label: "Narrative", value: narrative?.narrative_persistence_score ?? 0, color: "#00D4AA" },
-                            { label: "Combined", value: combined, color: "#6C63FF" },
+                            { label: "Structural", value: asset.trend_persistence_score, color: "var(--score-structural)" },
+                            { label: "Narrative", value: narrative?.narrative_persistence_score ?? 0, color: "var(--score-narrative)" },
+                            { label: "Combined", value: combined, color: "var(--score-combined)" },
                         ].map((s) => (
                             <div key={s.label} style={{ flex: 1 }}>
                                 <div style={{ fontSize: "0.65rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>
@@ -271,16 +271,16 @@ export function DossierModal({ asset, narrative, onClose }: DossierModalProps) {
                                 <AreaChart data={history} margin={{ top: 4, right: 0, bottom: 0, left: -20 }}>
                                     <defs>
                                         <linearGradient id={`gs-${asset.symbol}`} x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor={stateColor} stopOpacity={0.3} />
-                                            <stop offset="95%" stopColor={stateColor} stopOpacity={0} />
+                                            <stop offset="5%" stopColor="var(--score-structural)" stopOpacity={0.3} />
+                                            <stop offset="95%" stopColor="var(--score-structural)" stopOpacity={0} />
                                         </linearGradient>
                                         <linearGradient id={`gn-${asset.symbol}`} x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor="#00D4AA" stopOpacity={0.2} />
-                                            <stop offset="95%" stopColor="#00D4AA" stopOpacity={0} />
+                                            <stop offset="5%" stopColor="var(--score-narrative)" stopOpacity={0.2} />
+                                            <stop offset="95%" stopColor="var(--score-narrative)" stopOpacity={0} />
                                         </linearGradient>
                                         <linearGradient id={`gc-${asset.symbol}`} x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor="#6C63FF" stopOpacity={0.2} />
-                                            <stop offset="95%" stopColor="#6C63FF" stopOpacity={0} />
+                                            <stop offset="5%" stopColor="var(--score-combined)" stopOpacity={0.2} />
+                                            <stop offset="95%" stopColor="var(--score-combined)" stopOpacity={0} />
                                         </linearGradient>
                                     </defs>
                                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
@@ -291,9 +291,9 @@ export function DossierModal({ asset, narrative, onClose }: DossierModalProps) {
                                         labelStyle={{ color: "var(--text-secondary)", marginBottom: 4 }}
                                     />
                                     <Legend wrapperStyle={{ fontSize: "0.7rem", color: "var(--text-muted)", paddingTop: 8 }} />
-                                    <Area type="monotone" dataKey="structural_score" name="Structural" stroke={stateColor} strokeWidth={2.5} fill={`url(#gs-${asset.symbol})`} dot={false} activeDot={{ r: 4, fill: stateColor }} />
-                                    <Area type="monotone" dataKey="narrative_score" name="Narrative" stroke="#00D4AA" strokeWidth={1.5} fill={`url(#gn-${asset.symbol})`} dot={false} activeDot={{ r: 3 }} />
-                                    <Area type="monotone" dataKey="combined_score" name="Combined" stroke="#6C63FF" strokeWidth={2} fill={`url(#gc-${asset.symbol})`} dot={false} activeDot={{ r: 4, fill: "#6C63FF" }} />
+                                    <Area type="monotone" dataKey="structural_score" name="Structural" stroke="var(--score-structural)" strokeWidth={2.5} fill={`url(#gs-${asset.symbol})`} dot={false} activeDot={{ r: 4, fill: "var(--score-structural)" }} />
+                                    <Area type="monotone" dataKey="narrative_score" name="Narrative" stroke="var(--score-narrative)" strokeWidth={1.5} fill={`url(#gn-${asset.symbol})`} dot={false} activeDot={{ r: 3 }} />
+                                    <Area type="monotone" dataKey="combined_score" name="Combined" stroke="var(--score-combined)" strokeWidth={2} fill={`url(#gc-${asset.symbol})`} dot={false} activeDot={{ r: 4, fill: "var(--score-combined)" }} />
                                 </AreaChart>
                             </ResponsiveContainer>
                         )}
@@ -350,7 +350,7 @@ export function DossierModal({ asset, narrative, onClose }: DossierModalProps) {
                                     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                                         {narrative.summary_ai && (
                                             <div style={{
-                                                padding: "10px 12px", background: "rgba(0,212,170,0.06)", border: "1px solid rgba(0,212,170,0.15)",
+                                                padding: "10px 12px", background: "rgba(168, 85, 247, 0.06)", border: "1px solid rgba(168, 85, 247, 0.15)",
                                                 borderRadius: "var(--radius-md)", fontSize: "0.8rem", color: "var(--text-secondary)", lineHeight: 1.5,
                                             }}>
                                                 🤖 {narrative.summary_ai}
@@ -359,8 +359,8 @@ export function DossierModal({ asset, narrative, onClose }: DossierModalProps) {
                                         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                                             {narrative.tone_change && (
                                                 <span style={{
-                                                    padding: "2px 8px", background: narrative.tone_change === "improving" ? "rgba(0,212,170,0.1)" : "rgba(244,63,94,0.1)",
-                                                    color: narrative.tone_change === "improving" ? "var(--accent-emerald)" : "var(--accent-rose)", borderRadius: 20, fontSize: "0.65rem", fontWeight: 600,
+                                                    padding: "2px 8px", background: narrative.tone_change === "improving" ? "rgba(168, 85, 247, 0.15)" : "rgba(244,63,94,0.1)",
+                                                    color: narrative.tone_change === "improving" ? "var(--score-narrative)" : "var(--accent-rose)", borderRadius: 20, fontSize: "0.65rem", fontWeight: 600,
                                                 }}>Tono: {narrative.tone_change}</span>
                                             )}
                                         </div>

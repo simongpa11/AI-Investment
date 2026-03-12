@@ -407,11 +407,11 @@ export default function DashboardPage() {
                     {asset.structural_state !== "none" && (
                       <div style={{
                         position: "absolute", top: -8, right: 12, zIndex: 10,
-                        background: "rgba(0,212,170,0.15)",
-                        border: "1px solid rgba(0,212,170,0.35)",
+                        background: "rgba(245, 158, 11, 0.15)",
+                        border: "1px solid rgba(245, 158, 11, 0.35)",
                         borderRadius: 20, padding: "2px 8px",
                         fontSize: "0.62rem", fontWeight: 700,
-                        color: "var(--accent-emerald)",
+                        color: "var(--score-combined)",
                       }}>
                         📶 En tendencia activa
                       </div>

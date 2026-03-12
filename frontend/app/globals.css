@@ -15,6 +15,9 @@
   --accent-emerald-glow: rgba(0, 212, 170, 0.25);
   --accent-amber: #F59E0B;
   --accent-rose: #F43F5E;
+  --score-structural: #00D4AA;
+  --score-narrative: #A855F7;
+  --score-combined: #F59E0B;
   --accent-blue: #3B82F6;
 
   /* Structural state colors */
@@ -406,9 +409,9 @@ body {
   transition: width 0.8s ease;
 }
 
-.score-bar-fill.structural { background: linear-gradient(90deg, var(--accent-indigo), #818CF8); }
-.score-bar-fill.narrative { background: linear-gradient(90deg, var(--accent-emerald), #34D399); }
-.score-bar-fill.combined { background: linear-gradient(90deg, var(--accent-indigo), var(--accent-emerald)); }
+.score-bar-fill.structural { background: var(--score-structural); }
+.score-bar-fill.narrative { background: var(--score-narrative); }
+.score-bar-fill.combined { background: var(--score-combined); }
 
 /* Duration chip */
 .duration-chip {

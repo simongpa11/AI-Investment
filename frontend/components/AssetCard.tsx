@@ -81,21 +81,21 @@ export function AssetCard({
                 <div className="asset-scores">
                     <div className="score-item">
                         <div className="score-label">Structural</div>
-                        <div className="score-value" style={{ color: stateColor }}>{structScore}</div>
+                        <div className="score-value" style={{ color: "var(--score-structural)" }}>{structScore}</div>
                         <div className="score-bar">
                             <div className="score-bar-fill structural" style={{ width: `${structScore}%` }} />
                         </div>
                     </div>
                     <div className="score-item">
                         <div className="score-label">Narrative</div>
-                        <div className="score-value" style={{ color: "var(--accent-emerald)" }}>{narScore}</div>
+                        <div className="score-value" style={{ color: "var(--score-narrative)" }}>{narScore}</div>
                         <div className="score-bar">
                             <div className="score-bar-fill narrative" style={{ width: `${narScore}%` }} />
                         </div>
                     </div>
                     <div className="score-item">
                         <div className="score-label">Combined</div>
-                        <div className="score-value" style={{ color: "var(--accent-indigo)" }}>{combined}</div>
+                        <div className="score-value" style={{ color: "var(--score-combined)" }}>{combined}</div>
                         <div className="score-bar">
                             <div className="score-bar-fill combined" style={{ width: `${combined}%` }} />
                         </div>
@@ -141,7 +141,7 @@ export function AssetCard({
 
                 {/* AI Summary */}
                 {asset.narrative?.summary_ai && (
-                    <div className="ai-summary">
+                    <div className="ai-summary" style={{ borderLeftColor: "var(--score-narrative)", background: "rgba(168, 85, 247, 0.05)" }}>
                         🤖 {asset.narrative.summary_ai}
                     </div>
                 )}

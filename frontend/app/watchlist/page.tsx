@@ -22,8 +22,8 @@ function DossierChart({ history }: { history: ScoreHistory[] }) {
                         <stop offset="95%" stopColor="#6C63FF" stopOpacity={0} />
                     </linearGradient>
                     <linearGradient id="grad-narr" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#00D4AA" stopOpacity={0.2} />
-                        <stop offset="95%" stopColor="#00D4AA" stopOpacity={0} />
+                        <stop offset="5%" stopColor="var(--score-narrative)" stopOpacity={0.2} />
+                        <stop offset="95%" stopColor="var(--score-narrative)" stopOpacity={0} />
                     </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
@@ -33,8 +33,8 @@ function DossierChart({ history }: { history: ScoreHistory[] }) {
                     contentStyle={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 8, fontSize: "0.75rem" }}
                     labelStyle={{ color: "var(--text-secondary)" }}
                 />
-                <Area type="monotone" dataKey="structural_score" name="Structural" stroke="#6C63FF" strokeWidth={2} fill="url(#grad-struct)" dot={false} />
-                <Area type="monotone" dataKey="narrative_score" name="Narrative" stroke="#00D4AA" strokeWidth={1.5} fill="url(#grad-narr)" dot={false} />
+                <Area type="monotone" dataKey="structural_score" name="Structural" stroke="var(--score-structural)" strokeWidth={2} fill="url(#grad-struct)" dot={false} />
+                <Area type="monotone" dataKey="narrative_score" name="Narrative" stroke="var(--score-narrative)" strokeWidth={1.5} fill="url(#grad-narr)" dot={false} />
             </AreaChart>
         </ResponsiveContainer>
     );
@@ -68,17 +68,32 @@ function WatchlistCard({ item, onRemove }: { item: WatchlistItem; onRemove: (s: 
                     </div>
                 </div>
 
-                <div style={{ textAlign: "right" }}>
-                    <div style={{
-                        fontSize: "2rem",
-                        fontWeight: 800,
-                        color: score >= 60 ? "var(--accent-emerald)" : score >= 40 ? "var(--accent-indigo)" : "var(--text-muted)",
-                        letterSpacing: "-0.04em"
-                    }}>
-                        {score}
+                <div style={{ display: "flex", gap: 24 }}>
+                    <div style={{ textAlign: "right" }}>
+                        <div style={{
+                            fontSize: "2rem",
+                            fontWeight: 800,
+                            color: "var(--score-structural)",
+                            letterSpacing: "-0.04em"
+                        }}>
+                            {score}
+                        </div>
+                        <div style={{ fontSize: "0.65rem", color: "var(--text-muted)", textTransform: "uppercase" }}>Structural</div>
                     </div>
-                    <div style={{ fontSize: "0.65rem", color: "var(--text-muted)", textTransform: "uppercase" }}>Score</div>
-                    <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 4 }}>
+                    <div style={{ textAlign: "right" }}>
+                        <div style={{
+                            fontSize: "2rem",
+                            fontWeight: 800,
+                            color: "var(--score-narrative)",
+                            letterSpacing: "-0.04em"
+                        }}>
+                            {item.structural?.narrative?.narrative_persistence_score ?? "—"}
+                        </div>
+                        <div style={{ fontSize: "0.65rem", color: "var(--text-muted)", textTransform: "uppercase" }}>Narrative</div>
+                    </div>
+                </div>
+                <div style={{ textAlign: "right", marginTop: 12 }}>
+                    <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>
                         {duration}d activo · {item.structural?.phase ?? "—"}
                     </div>
                     <button
