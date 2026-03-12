@@ -159,8 +159,8 @@ async def rescan_symbol(symbol: str):
         "structural_score": structural["trend_persistence_score"],
         "narrative_score": narrative["narrative_persistence_score"] if narrative else 0,
         "combined_score": int(
-            structural["trend_persistence_score"] * 0.65
-            + (narrative["narrative_persistence_score"] if narrative else 0) * 0.35
+            structural["trend_persistence_score"] * 0.90
+            + (narrative["narrative_persistence_score"] if narrative else 0) * 0.10
         ),
     })
 
@@ -179,7 +179,22 @@ async def get_phase_summary():
     phases = {"Emerging": [], "Confirmed": [], "Structural": []}
     states = {"accumulation": 0, "breakout": 0, "rotation": 0, "squeeze": 0, "none": 0}
 
+    # Merge narrative scores for filtering
+    symbols = [item["symbol"] for item in all_data]
+    from db.supabase_client import get_client
+    client = get_client()
+    nar_res = client.table("narrative_scores").select("*").in_("symbol", symbols).execute()
+    nar_map = {n["symbol"]: n for n in (nar_res.data or [])}
+
     for item in all_data:
+        # Quality Filters
+        nar_score = nar_map.get(item["symbol"], {}).get("narrative_persistence_score", 0)
+        struct_score = item.get("trend_persistence_score", 0)
+        combined_score = int(struct_score * 0.90 + nar_score * 0.10)
+
+        if struct_score <= 50 or nar_score < 0 or combined_score < 50:
+            continue
+
         phase = item.get("phase", "Emerging")
         if phase in phases:
             phases[phase].append(item)

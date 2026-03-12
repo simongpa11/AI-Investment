@@ -7,16 +7,20 @@ export interface StructuralScore {
     name: string;
     sector: string;
     trend_persistence_score: number;
-    structural_state: "accumulation" | "breakout" | "rotation" | "squeeze" | "none";
+    structural_state: "accumulation" | "early_accumulation" | "breakout" | "rotation" | "squeeze" | "none";
     phase: "Emerging" | "Confirmed" | "Structural";
     duration_days: number;
     volume_change_ratio: number;
     volatility_compression_days: number;
     relative_strength_20d: number;
+    relative_strength_market: number;
+    trend_quality: number;
+    atr_expansion: number;
     current_price: number;
     ma50: number;
     ma200: number;
     distance_from_52w_high: number;
+    distance_from_90d_high: number;
     volume_spike_ratio: number;
     details_json?: Record<string, unknown>;
     narrative?: NarrativeScore | null;
@@ -53,7 +57,7 @@ export interface WatchlistItem {
 
 export interface PhaseSummary {
     phases: { Emerging: number; Confirmed: number; Structural: number };
-    states: { accumulation: number; breakout: number; rotation: number; squeeze: number; none: number };
+    states: { accumulation: number; early_accumulation: number; breakout: number; rotation: number; squeeze: number; none: number };
     top_by_phase: { Emerging: StructuralScore[]; Confirmed: StructuralScore[]; Structural: StructuralScore[] };
 }
 
@@ -136,6 +140,7 @@ export async function triggerManualScan(symbol: string): Promise<any> {
 // ── Helpers ────────────────────────────────────────────────
 export const STATE_LABELS: Record<string, string> = {
     accumulation: "🟢 Acumulación",
+    early_accumulation: "🌱 Acumulación Temprana",
     breakout: "🟡 Ruptura",
     rotation: "🔵 Rotación",
     squeeze: "🔴 Squeeze",
@@ -144,6 +149,7 @@ export const STATE_LABELS: Record<string, string> = {
 
 export const STATE_EMOJIS: Record<string, string> = {
     accumulation: "🟢",
+    early_accumulation: "🌱",
     breakout: "🟡",
     rotation: "🔵",
     squeeze: "🔴",

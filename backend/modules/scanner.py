@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 # STRUCTURAL STATE CONSTANTS
 # ──────────────────────────────────────────────
 STATE_ACCUMULATION = "accumulation"       # 🟢
+STATE_EARLY_ACCUMULATION = "early_accumulation" # 🌱
 STATE_BREAKOUT = "breakout"               # 🟡
 STATE_ROTATION = "rotation"               # 🔵
 STATE_SQUEEZE = "squeeze"                 # 🔴
@@ -152,6 +153,10 @@ def compute_compression_expansion(df: pd.DataFrame) -> dict:
 
     # Current expansion
     expanding = current_atr > atr_90th * 0.7 and compressed_days >= 20
+    
+    # ATR Expansion ratio
+    mean_3m_atr = df["atr10"].iloc[-60:].mean()
+    atr_expansion = current_atr / mean_3m_atr if mean_3m_atr > 0 else 1.0
 
     # Tight price range check (Donchian)
     recent_high = df["High"].iloc[-20:].max()
@@ -163,6 +168,7 @@ def compute_compression_expansion(df: pd.DataFrame) -> dict:
         "in_compression": compressed_days >= 20,
         "compression_days": int(compressed_days),
         "expanding": bool(expanding),
+        "atr_expansion": float(round(atr_expansion, 3)),
         "range_pct": float(round(range_pct, 4)),
         "current_atr": float(round(current_atr, 4)),
     }
@@ -177,7 +183,14 @@ def compute_ma_health(df: pd.DataFrame) -> dict:
     Detect if price is consistently above key MAs.
     """
     if len(df) < 200:
-        return {"above_50ma": False, "above_200ma": False, "streak_50": 0, "streak_200": 0}
+        return {
+            "above_50ma": False, "above_200ma": False, "streak_50": 0, "streak_200": 0,
+            "ma50": 0.0, "ma200": 0.0, "price": df["Close"].iloc[-1] if not df.empty else 0.0,
+            "resilience_pct": 0.0, "price_above_ma50": False, "ma50_above_ma200": False,
+            "distance_from_52w_high": 0.0, "distance_from_90d_high": 0.0,
+            "breakout_90d": False, "breakout_6m": False, "breakout_52w": False,
+            "trend_quality": 0.0
+        }
 
     df = df.copy()
     df["ma50"] = df["Close"].rolling(50).mean()
@@ -223,11 +236,20 @@ def compute_ma_health(df: pd.DataFrame) -> dict:
     
     # Breakout Detection
     high_52w = df["High"].iloc[-252:].max() if len(df) >= 252 else df["High"].max()
+    high_90d = df["High"].iloc[-63:].max() if len(df) >= 63 else df["High"].max() # ~3 months
     high_6m = df["High"].iloc[-126:].max() if len(df) >= 126 else df["High"].max()
     
     distance_from_52w_high = (high_52w - current_price) / current_price if current_price > 0 else 0.0
+    distance_from_90d_high = (high_90d - current_price) / current_price if current_price > 0 else 0.0
+    
+    breakout_90d = current_price >= high_90d * 0.985
     breakout_6m = current_price >= high_6m * 0.98  # Within 2% of 6m high
     breakout_52w = current_price >= high_52w * 0.98 # Within 2% of 52w high
+
+    # Trend Quality (ratio of green days in last 30d)
+    last_30 = df.iloc[-30:]
+    positive_closes = len(last_30[last_30["Close"] > last_30["Open"]])
+    trend_quality = positive_closes / 30.0
 
     return {
         "above_50ma": bool(price_above_ma50),
@@ -241,43 +263,48 @@ def compute_ma_health(df: pd.DataFrame) -> dict:
         "price_above_ma50": bool(price_above_ma50),
         "ma50_above_ma200": bool(ma50_above_ma200),
         "distance_from_52w_high": float(round(distance_from_52w_high, 4)),
+        "distance_from_90d_high": float(round(distance_from_90d_high, 4)),
+        "breakout_90d": bool(breakout_90d),
         "breakout_6m": bool(breakout_6m),
         "breakout_52w": bool(breakout_52w),
+        "trend_quality": float(round(trend_quality, 3)),
     }
 
 
 # ──────────────────────────────────────────────
 # SIGNAL 4 — RELATIVE STRENGTH VS SECTOR
 # ──────────────────────────────────────────────
-def compute_relative_strength(df: pd.DataFrame, sector_df: Optional[pd.DataFrame]) -> dict:
+def compute_relative_strength(df: pd.DataFrame, sector_df: Optional[pd.DataFrame], market_df: Optional[pd.DataFrame] = None) -> dict:
     """
-    Compare stock return vs sector ETF return over multiple windows.
-    Higher = outperforming sector.
+    Compare stock return vs sector ETF return and market (SPY).
     """
-    if sector_df is None or len(df) < 60 or len(sector_df) < 60:
-        return {"rs_20d": 0.5, "rs_60d": 0.5, "rs_accelerating": False}
+    res = {"rs_20d": 0.0, "rs_60d": 0.0, "rs_market_90d": 0.0, "rs_accelerating": False}
+    
+    if len(df) < 60:
+        return res
 
-    # Align indexes
-    common = df.index.intersection(sector_df.index)
-    if len(common) < 20:
-        return {"rs_20d": 0.5, "rs_60d": 0.5, "rs_accelerating": False}
+    # 1. Sector RS
+    if sector_df is not None and len(sector_df) >= 60:
+        common = df.index.intersection(sector_df.index)
+        if len(common) >= 20:
+            stock_ret_20 = df.loc[common]["Close"].iloc[-20:].pct_change().sum()
+            sector_ret_20 = sector_df.loc[common]["Close"].iloc[-20:].pct_change().sum()
+            res["rs_20d"] = float(round(stock_ret_20 - sector_ret_20, 4))
 
-    stock_ret_20 = df.loc[common]["Close"].iloc[-20:].pct_change().sum()
-    sector_ret_20 = sector_df.loc[common]["Close"].iloc[-20:].pct_change().sum()
-    rs_20 = stock_ret_20 - sector_ret_20
+            stock_ret_60 = df.loc[common]["Close"].iloc[-60:].pct_change().sum()
+            sector_ret_60 = sector_df.loc[common]["Close"].iloc[-60:].pct_change().sum()
+            res["rs_60d"] = float(round(stock_ret_60 - sector_ret_60, 4))
+            res["rs_accelerating"] = res["rs_20d"] > res["rs_60d"] * 0.6 and res["rs_20d"] > 0
 
-    stock_ret_60 = df.loc[common]["Close"].iloc[-60:].pct_change().sum()
-    sector_ret_60 = sector_df.loc[common]["Close"].iloc[-60:].pct_change().sum()
-    rs_60 = stock_ret_60 - sector_ret_60
+    # 2. Market RS (vs SPY)
+    if market_df is not None and len(market_df) >= 90:
+        common_m = df.index.intersection(market_df.index)
+        if len(common_m) >= 90:
+            stock_ret_90 = df.loc[common_m]["Close"].iloc[-90:].pct_change().sum()
+            market_ret_90 = market_df.loc[common_m]["Close"].iloc[-90:].pct_change().sum()
+            res["rs_market_90d"] = float(round(stock_ret_90 - market_ret_90, 4))
 
-    # RS accelerating: gaining vs sector in recent window
-    rs_accelerating = rs_20 > rs_60 * 0.6 and rs_20 > 0
-
-    return {
-        "rs_20d": float(round(rs_20, 4)),
-        "rs_60d": float(round(rs_60, 4)),
-        "rs_accelerating": bool(rs_accelerating),
-    }
+    return res
 
 
 # ──────────────────────────────────────────────
@@ -287,69 +314,58 @@ def compute_trend_persistence_score(
     volume: dict, compression: dict, ma: dict, rs: dict
 ) -> int:
     """
-    Score components (0-100 technical base):
-    - Momentum (50%): distance from 52w high, price > MA50, MA50 > MA200, streaks.
-    - Relative Strength (30%): outperformance vs market ETF.
-    - Volume Spike (20%): anomalous volume ratio.
-    
-    The narrative score (10%) will be added later in the pipeline.
+    NEW Weighting:
+    - Momentum (35%): streks + proximity to highs + MA health.
+    - RS Sector (20%): outperformance vs sector.
+    - RS Market (20%): outperformance vs SPY (90d).
+    - Volume/Accumulation (15%): spike ratio + trend.
+    - Volatility Expansion (10%): ATR expansion ratio.
     """
-    momentum_score = 0
-    rs_score = 0
-    volume_score = 0
+    # 1. Momentum (0-100) -> 35%
+    mom_sub = 0
+    if ma.get("above_50ma"): mom_sub += 20
+    if ma.get("ma50_above_ma200"): mom_sub += 20
+    mom_sub += min(ma.get("streak_50", 0) / 30 * 30, 30)
+    # Proximity to 52w high
+    if ma.get("distance_from_52w_high", 1.0) < 0.05: mom_sub += 30
+    elif ma.get("distance_from_52w_high", 1.0) < 0.15: mom_sub += 15
+    mom_score = min(mom_sub, 100)
 
-    # 1. Momentum (0 - 100) -> 50%
-    if ma.get("above_50ma", False):
-        momentum_score += 20
-    if ma.get("above_200ma", False):
-        momentum_score += 15
-    if ma.get("ma50_above_ma200", False):
-        momentum_score += 15
-        
-    streak_50_pts = min(ma.get("streak_50", 0) / 40 * 15, 15)
-    momentum_score += streak_50_pts
-    streak_200_pts = min(ma.get("streak_200", 0) / 60 * 15, 15)
-    momentum_score += streak_200_pts
-    
-    dist_52w = ma.get("distance_from_52w_high", 1.0)
-    # Reward closeness to 52w high: if within 10%, give max 20 pts
-    if dist_52w < 0.10:
-        momentum_score += 20
-    elif dist_52w < 0.25:
-        momentum_score += 10
-    elif dist_52w < 0.50:
-        momentum_score += 5
-        
-    momentum_score = min(momentum_score, 100)
-
-    # 2. Relative Strength (0 - 100) -> 30%
+    # 2. RS Sector (0-100) -> 20%
+    rs_sec_score = 0
     rs20 = rs.get("rs_20d", 0)
-    if rs20 > 0.10:
-        rs_score = 100
-    elif rs20 > 0.05:
-        rs_score = 75
-    elif rs20 > 0.02:
-        rs_score = 50
-    elif rs20 > 0.0:
-        rs_score = 25
-        
-    if rs.get("rs_accelerating", False):
-        rs_score = min(rs_score + 25, 100)
+    if rs20 > 0.05: rs_sec_score = 100
+    elif rs20 > 0.02: rs_sec_score = 70
+    elif rs20 > 0: rs_sec_score = 40
+    if rs.get("rs_accelerating"): rs_sec_score = min(rs_sec_score + 20, 100)
 
-    # 3. Volume Spike (0 - 100) -> 20%
-    vol_spike = volume.get("volume_spike_ratio", 1.0)
-    if vol_spike >= 3.0:
-        volume_score = 100
-    elif vol_spike >= 2.0:
-        volume_score = 75
-    elif vol_spike >= 1.5:
-        volume_score = 50
-    elif vol_spike >= 1.2:
-        volume_score = 25
-        
-    # Final technical calculation
-    total_score = (0.50 * momentum_score) + (0.30 * rs_score) + (0.20 * volume_score)
-    return int(min(max(total_score, 0), 100))
+    # 3. RS Market (0-100) -> 20%
+    rs_mkt_score = 0
+    rs_mkt = rs.get("rs_market_90d", 0)
+    if rs_mkt > 0.10: rs_mkt_score = 100
+    elif rs_mkt > 0.05: rs_mkt_score = 75
+    elif rs_mkt > 0: rs_mkt_score = 50
+
+    # 4. Volume/Accumulation (0-100) -> 15%
+    vol_sub = 0
+    spike = volume.get("volume_spike_ratio", 1.0)
+    if spike > 2.0: vol_sub = 100
+    elif spike > 1.5: vol_sub = 70
+    elif spike > 1.2: vol_sub = 40
+    vol_score = vol_sub
+
+    # 5. Volatility Expansion (0-100) -> 10%
+    atr_exp = compression.get("atr_expansion", 1.0)
+    volat_score = 0
+    if atr_exp > 1.5: volat_score = 100
+    elif atr_exp > 1.2: volat_score = 70
+    elif atr_exp > 1.0: volat_score = 40
+
+    # Final logic
+    total = (0.35 * mom_score) + (0.20 * rs_sec_score) + (0.20 * rs_mkt_score) + \
+            (0.15 * vol_score) + (0.10 * volat_score)
+            
+    return int(min(max(total, 0), 100))
 
 
 # ──────────────────────────────────────────────
@@ -371,6 +387,10 @@ def classify_structural_state(
     # 🟡 Ruptura estructural — volume spike + ATR expansion + above MA
     if expanding and vol_ratio >= 1.5 and above_50:
         return STATE_BREAKOUT
+
+    # 🌱 Early Accumulation — volume rising, low volatility, lateral price
+    if vol_ratio >= 1.2 and compressed and score >= 30:
+        return STATE_EARLY_ACCUMULATION
 
     # 🔵 Rotación sectorial — RS accelerating vs sector
     if rs_accel and rs.get("rs_20d", 0) > 0.02 and score >= 35:
@@ -431,11 +451,12 @@ def scan_symbol(symbol: str) -> Optional[dict]:
 
     info = get_ticker_info(symbol)
     sector_df = fetch_sector_etf(info["sector"])
+    market_df = fetch_ohlcv("SPY", days=250)
 
     volume = compute_volume_regime(df)
     compression = compute_compression_expansion(df)
     ma = compute_ma_health(df)
-    rs = compute_relative_strength(df, sector_df)
+    rs = compute_relative_strength(df, sector_df, market_df)
 
     score = compute_trend_persistence_score(volume, compression, ma, rs)
     state = classify_structural_state(
@@ -458,10 +479,14 @@ def scan_symbol(symbol: str) -> Optional[dict]:
         "volume_change_ratio": volume["ratio"],
         "volatility_compression_days": compression["compression_days"],
         "relative_strength_20d": rs["rs_20d"],
+        "relative_strength_market": rs.get("rs_market_90d", 0),
+        "trend_quality": ma.get("trend_quality", 0),
+        "atr_expansion": compression.get("atr_expansion", 1.0),
         "current_price": ma.get("price", 0),
         "ma50": ma.get("ma50", 0),
         "ma200": ma.get("ma200", 0),
         "distance_from_52w_high": ma.get("distance_from_52w_high", 0),
+        "distance_from_90d_high": ma.get("distance_from_90d_high", 0),
         "volume_spike_ratio": volume.get("volume_spike_ratio", 1.0),
         "details_json": {
             "volume": volume,

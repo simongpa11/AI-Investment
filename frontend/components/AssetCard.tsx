@@ -5,6 +5,7 @@ import { DossierModal } from "./DossierModal";
 
 const STATE_COLORS: Record<string, string> = {
     accumulation: "#00D4AA",
+    early_accumulation: "#10B981", // 🌱 Emerald/Green
     breakout: "#F59E0B",
     rotation: "#3B82F6",
     squeeze: "#F43F5E",
@@ -105,27 +106,35 @@ export function AssetCard({
                 {/* Duration & Signals */}
                 <div className="duration-chip">
                     <span>⏱ {asset.duration_days}d activo</span>
+                    {asset.trend_quality > 0.6 && (
+                        <>
+                            <span style={{ color: "var(--text-muted)", margin: "0 4px" }}>•</span>
+                            <span style={{ color: "var(--accent-emerald)" }} title="Trend Quality (Positive Closes Ratio)">
+                                💎 {(asset.trend_quality * 100).toFixed(0)}% cal.
+                            </span>
+                        </>
+                    )}
+                    {asset.relative_strength_market > 0.05 && (
+                        <>
+                            <span style={{ color: "var(--text-muted)", margin: "0 4px" }}>•</span>
+                            <span style={{ color: "var(--accent-blue)" }} title="Relative Strength vs Market (SPY 90d)">
+                                🏛️ RS-Mkt +{(asset.relative_strength_market * 100).toFixed(1)}%
+                            </span>
+                        </>
+                    )}
+                    {asset.atr_expansion > 1.2 && (
+                        <>
+                            <span style={{ color: "var(--text-muted)", margin: "0 4px" }}>•</span>
+                            <span style={{ color: "var(--accent-rose)" }} title="ATR Volatility Expansion (Trend start)">
+                                ⚡ Exp. ×{asset.atr_expansion.toFixed(1)}
+                            </span>
+                        </>
+                    )}
                     {asset.volume_spike_ratio > 1.4 && (
                         <>
                             <span style={{ color: "var(--text-muted)", margin: "0 4px" }}>•</span>
                             <span style={{ color: "var(--accent-amber)" }} title="Anomalous Volume Spike vs 30d">
                                 Vol ×{asset.volume_spike_ratio.toFixed(1)}
-                            </span>
-                        </>
-                    )}
-                    {asset.distance_from_52w_high !== undefined && asset.distance_from_52w_high < 0.15 && (
-                        <>
-                            <span style={{ color: "var(--text-muted)", margin: "0 4px" }}>•</span>
-                            <span style={{ color: "var(--accent-emerald)" }} title="Near 52-week High (Breakout zone)">
-                                🏔️ {(asset.distance_from_52w_high * 100).toFixed(1)}% 52W High
-                            </span>
-                        </>
-                    )}
-                    {asset.volatility_compression_days >= 20 && (
-                        <>
-                            <span style={{ color: "var(--text-muted)", margin: "0 4px" }}>•</span>
-                            <span style={{ color: "var(--accent-indigo)" }}>
-                                Comp. {asset.volatility_compression_days}d
                             </span>
                         </>
                     )}

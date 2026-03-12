@@ -9,6 +9,7 @@ import { StructuralScore, NarrativeScore, ScoreHistory, STATE_LABELS, STATE_EMOJ
 
 const STATE_COLORS: Record<string, string> = {
     accumulation: "#00D4AA",
+    early_accumulation: "#10B981",
     breakout: "#F59E0B",
     rotation: "#3B82F6",
     squeeze: "#F43F5E",
@@ -326,11 +327,27 @@ export function DossierModal({ asset, narrative, onClose }: DossierModalProps) {
                                             </div>
                                         </div>
                                     )}
-                                    {asset.relative_strength_20d > 0.02 && (
+                                    {asset.relative_strength_market > 0.02 && (
                                         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                            <span style={{ fontSize: "1rem" }}>⬆️</span>
+                                            <span style={{ fontSize: "1rem" }}>🏛️</span>
                                             <div>
-                                                <div style={{ fontSize: "0.75rem", fontWeight: 600 }}>RS +{(asset.relative_strength_20d * 100).toFixed(1)}% vs sector</div>
+                                                <div style={{ fontSize: "0.75rem", fontWeight: 600 }}>🏛️ RS-Mkt +{(asset.relative_strength_market * 100).toFixed(1)}% vs SPY</div>
+                                            </div>
+                                        </div>
+                                    )}
+                                    {asset.trend_quality > 0.6 && (
+                                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                            <span style={{ fontSize: "1rem" }}>💎</span>
+                                            <div>
+                                                <div style={{ fontSize: "0.75rem", fontWeight: 600 }}>💎 Calidad de tendencia: {(asset.trend_quality * 100).toFixed(0)}%</div>
+                                            </div>
+                                        </div>
+                                    )}
+                                    {asset.atr_expansion > 1.2 && (
+                                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                            <span style={{ fontSize: "1rem" }}>⚡</span>
+                                            <div>
+                                                <div style={{ fontSize: "0.75rem", fontWeight: 600 }}>⚡ Expansión ATR ×{asset.atr_expansion.toFixed(1)}</div>
                                             </div>
                                         </div>
                                     )}

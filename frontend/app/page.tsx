@@ -7,6 +7,7 @@ import { AssetCard } from "@/components/AssetCard";
 const STATE_FILTERS = [
   { key: "all", label: "Todos" },
   { key: "accumulation", label: "🟢 Acumulación" },
+  { key: "early_accumulation", label: "🌱 Acumulación Temprana" },
   { key: "breakout", label: "🟡 Ruptura" },
   { key: "rotation", label: "🔵 Rotación" },
   { key: "squeeze", label: "🔴 Squeeze" },
@@ -19,6 +20,9 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [scanning, setScanning] = useState(false);
   const [stateFilter, setStateFilter] = useState("all");
+  const [minStructural, setMinStructural] = useState(50);
+  const [minNarrative, setMinNarrative] = useState(0);
+  const [minCombined, setMinCombined] = useState(50);
   const [error, setError] = useState<string | null>(null);
 
   // Manual Scan state
@@ -231,17 +235,51 @@ export default function DashboardPage() {
         </div>
       )}
 
-      <div className="filter-bar">
-        {STATE_FILTERS.map((f) => (
-          <button
-            key={f.key}
-            className={`filter-chip ${stateFilter === f.key ? "active" : ""}`}
-            onClick={() => setStateFilter(f.key)}
-            id={`filter-${f.key}`}
-          >
-            {f.label}
-          </button>
-        ))}
+      <div className="filter-bar" style={{ display: 'flex', flexWrap: 'wrap', gap: 16 }}>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {STATE_FILTERS.map((f) => (
+            <button
+              key={f.key}
+              className={`filter-chip ${stateFilter === f.key ? "active" : ""}`}
+              onClick={() => setStateFilter(f.key)}
+              id={`filter-${f.key}`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="section-divider-v" style={{ width: 1, height: 24, background: "rgba(255,255,255,0.1)", margin: "0 8px" }} />
+
+        <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Min Structural</span>
+            <input
+              type="number"
+              value={minStructural}
+              onChange={(e) => setMinStructural(parseInt(e.target.value) || 0)}
+              style={{ width: 60, padding: '4px 8px', borderRadius: 4, background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', fontSize: '0.8rem' }}
+            />
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Min Narrative</span>
+            <input
+              type="number"
+              value={minNarrative}
+              onChange={(e) => setMinNarrative(parseInt(e.target.value) || 0)}
+              style={{ width: 60, padding: '4px 8px', borderRadius: 4, background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', fontSize: '0.8rem' }}
+            />
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Min Combined</span>
+            <input
+              type="number"
+              value={minCombined}
+              onChange={(e) => setMinCombined(parseInt(e.target.value) || 0)}
+              style={{ width: 60, padding: '4px 8px', borderRadius: 4, background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', fontSize: '0.8rem' }}
+            />
+          </div>
+        </div>
       </div>
 
       {loading && (
@@ -435,18 +473,27 @@ export default function DashboardPage() {
             assets={filteredAssets}
             watchedSymbols={watchedSymbols}
             onWatchToggle={handleWatchToggle}
+            minStructural={minStructural}
+            minNarrative={minNarrative}
+            minCombined={minCombined}
           />
           <TrendSection
             phase="Confirmed"
             assets={filteredAssets}
             watchedSymbols={watchedSymbols}
             onWatchToggle={handleWatchToggle}
+            minStructural={minStructural}
+            minNarrative={minNarrative}
+            minCombined={minCombined}
           />
           <TrendSection
             phase="Structural"
             assets={filteredAssets}
             watchedSymbols={watchedSymbols}
             onWatchToggle={handleWatchToggle}
+            minStructural={minStructural}
+            minNarrative={minNarrative}
+            minCombined={minCombined}
           />  </>
       )
       }

@@ -10,6 +10,9 @@ interface TrendSectionProps {
     assets: StructuralScore[];
     watchedSymbols: Set<string>;
     onWatchToggle: (symbol: string, watched: boolean) => void;
+    minStructural: number;
+    minNarrative: number;
+    minCombined: number;
 }
 
 const PHASE_CONFIG = {
@@ -41,13 +44,25 @@ export function TrendSection({
     assets,
     watchedSymbols,
     onWatchToggle,
+    minStructural,
+    minNarrative,
+    minCombined,
 }: TrendSectionProps) {
     const config = PHASE_CONFIG[phase];
     const [showAll, setShowAll] = useState(false);
 
-    const filtered = assets.filter(
-        (a) => a.phase === phase && a.structural_state !== "none"
-    );
+    const filtered = assets.filter((a) => {
+        const narScore = a.narrative?.narrative_persistence_score ?? 0;
+        const combScore = Math.round(a.trend_persistence_score * 0.90 + narScore * 0.10);
+        
+        return (
+            a.phase === phase &&
+            a.structural_state !== "none" &&
+            a.trend_persistence_score >= minStructural &&
+            narScore >= minNarrative &&
+            combScore >= minCombined
+        );
+    });
 
     const visible = showAll ? filtered : filtered.slice(0, DEFAULT_VISIBLE);
     const hiddenCount = filtered.length - DEFAULT_VISIBLE;
