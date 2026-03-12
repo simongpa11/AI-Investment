@@ -444,7 +444,7 @@ def scan_symbol(symbol: str) -> Optional[dict]:
     duration = estimate_duration(df, score)
     phase = classify_phase(duration)
 
-    today = date.today().isoformat()
+    today = df.index[-1].strftime("%Y-%m-%d") if not df.empty else date.today().isoformat()
 
     return {
         "symbol": symbol,

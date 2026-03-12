@@ -58,10 +58,10 @@ async def get_russell_3000() -> List[str]:
     logger.info("Fetching US Universe (S&P 1500 proxy for Russell)...")
     sp500 = await scrape_wikipedia_tickers('https://en.wikipedia.org/wiki/List_of_S%26P_500_companies', 'wikitable', 0)
     sp400 = await scrape_wikipedia_tickers('https://en.wikipedia.org/wiki/List_of_S%26P_400_companies', 'wikitable', 0)
-    sp600 = await scrape_wikipedia_tickers('https://en.wikipedia.org/wiki/List_of_S%26P_600_companies', 'wikitable', 1) # Ticker is column 1 in S&P 600
+    sp600 = await scrape_wikipedia_tickers('https://en.wikipedia.org/wiki/List_of_S%26P_600_companies', 'wikitable', 0)
     
-    combined = list(set(sp500 + sp400 + sp600))
-    logger.info(f"Fetched {len(combined)} US tickers.")
+    combined = list(set([t for t in (sp500 + sp400 + sp600) if t and not t.startswith('$')]))
+    logger.info(f"Fetched {len(combined)} US tickers (cleaned).")
     return combined
 
 async def get_stoxx_600() -> List[str]:
@@ -172,8 +172,9 @@ async def build_filtered_universe() -> List[str]:
     # As an optimization for development/testing, we limit the raw universe before filtering
     # REMOVE this limit in full production if you want to scan all 1500+ daily.
     # Currently limited to 800 to keep the demo/pipeline fast.
-    if len(raw_universe) > 800:
-        raw_universe = raw_universe[:800]
+    # Limit raw universe to 300 to avoid yfinance rate limits
+    if len(raw_universe) > 300:
+        raw_universe = raw_universe[:300]
         
     filtered_universe = apply_liquidity_filters(raw_universe)
     
