@@ -215,6 +215,18 @@ def compute_narrative_persistence_score(
     total = growth_score + quality_score + theme_score + tone_score + plausibility_score
     total = int(min(max(total, 0), 100))
 
+    # Apply sentiment multiplier
+    # alcista -> +1, neutral -> 0, bajista -> -1
+    multiplier = 0
+    if gemini_result:
+        tone = gemini_result.get("tone", "neutral")
+        if tone == "alcista":
+            multiplier = 1
+        elif tone == "bajista":
+            multiplier = -1
+    
+    total = total * multiplier
+
     return {
         "score": total,
         "mention_growth": round(len(week1) / max(len(week2), 1), 2),

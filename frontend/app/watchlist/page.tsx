@@ -28,7 +28,7 @@ function DossierChart({ history }: { history: ScoreHistory[] }) {
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
                 <XAxis dataKey="date" tick={{ fill: "var(--text-muted)", fontSize: 10 }} tickLine={false} />
-                <YAxis domain={[0, 100]} tick={{ fill: "var(--text-muted)", fontSize: 10 }} tickLine={false} />
+                <YAxis domain={[-100, 100]} tick={{ fill: "var(--text-muted)", fontSize: 10 }} tickLine={false} />
                 <Tooltip
                     contentStyle={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 8, fontSize: "0.75rem" }}
                     labelStyle={{ color: "var(--text-secondary)" }}

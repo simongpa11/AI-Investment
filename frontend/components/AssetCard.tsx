@@ -90,7 +90,7 @@ export function AssetCard({
                         <div className="score-label">Narrative</div>
                         <div className="score-value" style={{ color: "var(--score-narrative)" }}>{narScore}</div>
                         <div className="score-bar">
-                            <div className="score-bar-fill narrative" style={{ width: `${narScore}%` }} />
+                            <div className="score-bar-fill narrative" style={{ width: `${Math.max(0, narScore)}%` }} />
                         </div>
                     </div>
                     <div className="score-item">

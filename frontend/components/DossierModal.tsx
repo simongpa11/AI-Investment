@@ -221,7 +221,7 @@ export function DossierModal({ asset, narrative, onClose }: DossierModalProps) {
                                     {s.value}
                                 </div>
                                 <div style={{ height: 4, background: "rgba(255,255,255,0.06)", borderRadius: 2, marginTop: 6 }}>
-                                    <div style={{ width: `${s.value}%`, height: "100%", background: s.color, borderRadius: 2, transition: "width 0.5s ease" }} />
+                                    <div style={{ width: `${Math.max(0, s.value)}%`, height: "100%", background: s.color, borderRadius: 2, transition: "width 0.5s ease" }} />
                                 </div>
                             </div>
                         ))}
@@ -284,8 +284,8 @@ export function DossierModal({ asset, narrative, onClose }: DossierModalProps) {
                                         </linearGradient>
                                     </defs>
                                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
-                                    <XAxis dataKey="date" tick={{ fill: "var(--text-muted)", fontSize: 10 }} tickLine={false} />
-                                    <YAxis domain={[0, 100]} tick={{ fill: "var(--text-muted)", fontSize: 10 }} tickLine={false} />
+                                    <XAxis dataKey="date" tick={{ fill: "var(--text-muted)", fontSize: 10 }} tickLine={false} axisLine={false} hide />
+                                    <YAxis domain={[-100, 100]} tick={{ fill: "var(--text-muted)", fontSize: 10 }} tickLine={false} axisLine={false} />
                                     <Tooltip
                                         contentStyle={{ background: "var(--bg-card-elevated, #1a1a2e)", border: "1px solid var(--border)", borderRadius: 8, fontSize: "0.75rem" }}
                                         labelStyle={{ color: "var(--text-secondary)", marginBottom: 4 }}
