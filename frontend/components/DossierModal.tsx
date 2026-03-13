@@ -140,19 +140,28 @@ export function DossierModal({ asset, narrative, onClose }: DossierModalProps) {
 
     const TabButton = ({ id, label }: { id: TabType, label: string }) => (
         <button
-            onClick={() => setActiveTab(id)}
+            onClick={() => {
+                setActiveTab(id);
+                setTranslateY(0); // Reset any drag state on tab change
+            }}
+            onTouchStart={(e) => e.stopPropagation()}
+            onTouchMove={(e) => e.stopPropagation()}
             style={{
-                padding: isMobile ? "10px 12px" : "12px 16px",
+                padding: isMobile ? "12px 18px" : "12px 20px",
                 background: "transparent",
                 border: "none",
-                borderBottom: activeTab === id ? `2px solid ${stateColor}` : "2px solid transparent",
-                color: activeTab === id ? "var(--text-primary)" : "var(--text-muted)",
-                fontSize: isMobile ? "0.75rem" : "0.875rem",
-                fontWeight: activeTab === id ? 600 : 500,
+                borderBottom: activeTab === id ? `3px solid ${stateColor}` : "3px solid transparent",
+                color: activeTab === id ? "white" : "var(--text-muted)",
+                fontSize: isMobile ? "0.85rem" : "0.9rem",
+                fontWeight: activeTab === id ? 800 : 500,
                 cursor: "pointer",
-                transition: "all 0.2s ease",
+                transition: "all 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
                 whiteSpace: "nowrap",
                 flexShrink: 0,
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                opacity: activeTab === id ? 1 : 0.6,
             }}
         >
             {label}
@@ -330,15 +339,20 @@ export function DossierModal({ asset, narrative, onClose }: DossierModalProps) {
                     </div>
                 </div>
 
-                {/* TABS */}
-                <div style={{
-                    display: "flex",
-                    borderBottom: "1px solid var(--border)",
-                    margin: isMobile ? "0" : "0 28px",
-                    overflowX: "auto",
-                    scrollbarWidth: "none",
-                    WebkitOverflowScrolling: "touch" as any,
-                }}>
+                <div 
+                    style={{
+                        display: "flex",
+                        borderBottom: "1px solid rgba(255,255,255,0.06)",
+                        margin: isMobile ? "0" : "0 28px",
+                        padding: isMobile ? "0 10px" : "0",
+                        overflowX: "auto",
+                        scrollbarWidth: "none",
+                        WebkitOverflowScrolling: "touch" as any,
+                        background: isMobile ? "rgba(255,255,255,0.02)" : "transparent",
+                    }}
+                    onTouchStart={(e) => e.stopPropagation()}
+                    onTouchMove={(e) => e.stopPropagation()}
+                >
                     <TabButton id="price" label={isMobile ? "📈 Precio" : "Evolución Estructural"} />
                     <TabButton id="scores" label={isMobile ? "📊 Scores" : "Historial de Scores"} />
                     <TabButton id="simulator" label={isMobile ? "🎯 Simular" : "Simulador de Estrategia"} />
@@ -347,34 +361,34 @@ export function DossierModal({ asset, narrative, onClose }: DossierModalProps) {
 
                 {/* TAB CONTENT: SUMMARY */}
                 {activeTab === "summary" && (
-                    <div style={{ padding: isMobile ? "16px" : "24px 28px", animation: "fadeIn 0.3s ease" }}>
-                        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: "16px" }}>
+                    <div style={{ padding: isMobile ? "20px 16px" : "24px 28px", animation: "fadeIn 0.3s ease", flex: 1, overflowY: "auto" }}>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "20px" }}>
                             {/* Section 1: Permanent Profile */}
                             <div style={{ 
-                                background: "rgba(255,255,255,0.02)", 
+                                background: "rgba(255,255,255,0.03)", 
                                 border: "1px solid var(--border)", 
-                                borderRadius: 12, 
+                                borderRadius: 16, 
                                 padding: "20px",
                                 position: "relative",
                                 overflow: "hidden"
                             }}>
                                 <div style={{ 
-                                    position: "absolute", top: 0, left: 0, width: "3px", height: "100%", 
-                                    background: "var(--accent-blue)" 
+                                    position: "absolute", top: 0, left: 0, width: "100%", height: "4px", 
+                                    background: "linear-gradient(90deg, #3B82F6 0%, transparent 100%)" 
                                 }} />
                                 <h3 style={{ 
-                                    fontSize: "0.95rem", fontWeight: 700, marginBottom: 10, 
-                                    display: "flex", alignItems: "center", gap: 8,
-                                    color: "var(--text-primary)"
+                                    fontSize: "1rem", fontWeight: 800, marginBottom: 12, 
+                                    display: "flex", alignItems: "center", gap: 10,
+                                    color: "white"
                                 }}>
                                     🏢 Perfil de la Empresa
                                 </h3>
                                 <div style={{ 
-                                    color: "var(--text-secondary)", lineHeight: 1.6, fontSize: "0.875rem",
+                                    color: "rgba(255,255,255,0.7)", lineHeight: 1.7, fontSize: "0.92rem",
                                     letterSpacing: "0.01em"
                                 }}>
                                     {(asset.details_json as any)?.dossier?.company_profile || (
-                                        <div style={{ color: "var(--text-muted)", fontStyle: "italic", fontSize: "0.8rem" }}>
+                                        <div style={{ color: "var(--text-muted)", fontStyle: "italic", fontSize: "0.85rem" }}>
                                             No hay descripción general disponible todavía.
                                         </div>
                                     )}
@@ -383,79 +397,89 @@ export function DossierModal({ asset, narrative, onClose }: DossierModalProps) {
 
                             {/* Section 2: Current Context/Rationale */}
                             <div style={{ 
-                                background: "linear-gradient(135deg, rgba(16,185,129,0.07) 0%, rgba(59,130,246,0.07) 100%)", 
+                                background: "rgba(16,185,129,0.05)", 
                                 border: "1px solid rgba(16,185,129,0.2)", 
-                                borderRadius: 12, 
+                                borderRadius: 16, 
                                 padding: "20px",
                                 position: "relative",
                                 overflow: "hidden"
                             }}>
                                 <div style={{ 
-                                    position: "absolute", top: 0, left: 0, width: "3px", height: "100%", 
-                                    background: "var(--accent-emerald)" 
+                                    position: "absolute", top: 0, left: 0, width: "100%", height: "4px", 
+                                    background: "linear-gradient(90deg, #10B981 0%, transparent 100%)" 
                                 }} />
                                 <h3 style={{ 
-                                    fontSize: "0.95rem", fontWeight: 700, marginBottom: 10, 
-                                    display: "flex", alignItems: "center", gap: 8,
-                                    color: "var(--text-primary)"
+                                    fontSize: "1rem", fontWeight: 800, marginBottom: 12, 
+                                    display: "flex", alignItems: "center", gap: 10,
+                                    color: "white"
                                 }}>
                                     🎯 Contexto Actual y Tesis
                                 </h3>
                                 <div style={{ 
-                                    color: "var(--text-secondary)", lineHeight: 1.6, fontSize: "0.875rem",
+                                    color: "rgba(255,255,255,0.7)", lineHeight: 1.7, fontSize: "0.92rem",
                                     letterSpacing: "0.01em"
                                 }}>
                                     {(asset.details_json as any)?.dossier?.trend_rationale || (
-                                        <div style={{ color: "var(--text-muted)", fontStyle: "italic", fontSize: "0.8rem" }}>
+                                        <div style={{ color: "var(--text-muted)", fontStyle: "italic", fontSize: "0.85rem" }}>
                                             Estamos analizando el contexto y la tendencia actual.
                                         </div>
                                     )}
                                 </div>
                             </div>
 
-                            {/* Info Banner & Button Footer */}
+                            {/* Action Footer */}
                             <div style={{ 
-                                gridColumn: "span 2",
-                                display: "flex", 
-                                alignItems: "center", 
-                                justifyContent: "space-between",
-                                gap: 20,
-                                marginTop: 4,
-                                padding: "10px 16px", 
-                                background: "rgba(255,255,255,0.02)", 
-                                borderRadius: 10, 
-                                border: "1px dashed var(--border)"
+                                padding: "20px", 
+                                background: "rgba(0,0,0,0.2)", 
+                                borderRadius: 16, 
+                                border: "1px dashed var(--border)",
+                                textAlign: "center"
                             }}>
-                                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                                    <span style={{ fontSize: "1rem" }}>💡</span>
-                                    <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", margin: 0 }}>
-                                        El perfil es <b>permanente</b>. El contexto se actualiza automáticamente.
-                                    </p>
+                                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
+                                    <div style={{ textAlign: "center" }}>
+                                        <span style={{ fontSize: "1.2rem", display: "block", marginBottom: 6 }}>💡</span>
+                                        <p style={{ fontSize: "0.8rem", color: "var(--text-muted)", margin: 0, maxWidth: "280px", lineHeight: 1.5 }}>
+                                            El perfil es <b>permanente</b>. Los datos de contexto se actualizan automáticamente tras cada escaneo.
+                                        </p>
+                                    </div>
+                                    
+                                    <button 
+                                        onClick={async (e) => {
+                                            const btn = e.currentTarget;
+                                            const originalText = btn.innerHTML;
+                                            btn.innerText = "✨ Analizando con AI...";
+                                            btn.disabled = true;
+                                            btn.style.opacity = "0.7";
+                                            try {
+                                                await api.rescan(asset.symbol);
+                                                window.location.reload(); 
+                                            } catch (err) {
+                                                btn.innerText = "❌ Error";
+                                                setTimeout(() => {
+                                                    btn.innerHTML = originalText;
+                                                    btn.disabled = false;
+                                                    btn.style.opacity = "1";
+                                                }, 2000);
+                                            }
+                                        }}
+                                        className="btn-primary" 
+                                        style={{ 
+                                            width: "100%",
+                                            maxWidth: "320px",
+                                            padding: "14px 24px", 
+                                            borderRadius: 12, 
+                                            fontSize: "0.9rem",
+                                            fontWeight: 700, 
+                                            boxShadow: "0 8px 20px rgba(108, 99, 255, 0.2)",
+                                            display: "flex",
+                                            alignItems: "center",
+                                            justifyContent: "center",
+                                            gap: 8
+                                        }}
+                                    >
+                                        <span>✨</span> Recalcular Resumen AI
+                                    </button>
                                 </div>
-                                
-                                <button 
-                                    onClick={async (e) => {
-                                        const btn = e.currentTarget;
-                                        btn.innerText = "✨ Analizando con Gemini...";
-                                        btn.disabled = true;
-                                        btn.style.opacity = "0.7";
-                                        try {
-                                            await api.rescan(asset.symbol);
-                                            window.location.reload(); 
-                                        } catch (err) {
-                                            btn.innerText = "❌ Error";
-                                            btn.disabled = false;
-                                            btn.style.opacity = "1";
-                                        }
-                                    }}
-                                    className="btn-primary" 
-                                    style={{ 
-                                        padding: "8px 16px", borderRadius: 8, fontSize: "0.8rem",
-                                        fontWeight: 600, boxShadow: "0 4px 12px rgba(108, 99, 255, 0.2)"
-                                    }}
-                                >
-                                    ✨ Recalcular Resumen Completo
-                                </button>
                             </div>
                         </div>
                     </div>
