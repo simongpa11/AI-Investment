@@ -138,6 +138,29 @@ export function DossierModal({ asset, narrative, onClose }: DossierModalProps) {
 
     const hasData = history.length >= 2;
 
+    // Gesture handlers
+    const handleTouchStart = (e: React.TouchEvent) => {
+        if (!isMobile || e.currentTarget.scrollTop > 0) return;
+        setTouchStart(e.touches[0].clientY);
+    };
+
+    const handleTouchMove = (e: React.TouchEvent) => {
+        if (!isMobile || touchStart === null) return;
+        const deltaY = e.touches[0].clientY - touchStart;
+        if (deltaY > 0) {
+            setTranslateY(deltaY);
+            if (deltaY > 150) {
+                onClose();
+                setTouchStart(null);
+            }
+        }
+    };
+
+    const handleTouchEnd = () => {
+        if (translateY < 150) setTranslateY(0);
+        setTouchStart(null);
+    };
+
     const TabButton = ({ id, label }: { id: TabType, label: string }) => (
         <button
             onClick={() => {
@@ -220,25 +243,6 @@ export function DossierModal({ asset, narrative, onClose }: DossierModalProps) {
                     // Standard overscroll-to-close feel (fallback if touch isn't captured)
                     if (e.currentTarget.scrollTop < -70) onClose();
                 }}
-                onTouchStart={(e) => {
-                    if (!isMobile || e.currentTarget.scrollTop > 0) return;
-                    setTouchStart(e.touches[0].clientY);
-                }}
-                onTouchMove={(e) => {
-                    if (!isMobile || touchStart === null) return;
-                    const deltaY = e.touches[0].clientY - touchStart;
-                    if (deltaY > 0) {
-                        setTranslateY(deltaY);
-                        if (deltaY > 150) {
-                            onClose();
-                            setTouchStart(null);
-                        }
-                    }
-                }}
-                onTouchEnd={() => {
-                    if (translateY < 150) setTranslateY(0);
-                    setTouchStart(null);
-                }}
             >
                 {/* Mobile Pull Handle */}
                 {isMobile && (
@@ -248,64 +252,83 @@ export function DossierModal({ asset, narrative, onClose }: DossierModalProps) {
                     }} />
                 )}
                 {/* Header strip */}
-                <div style={{
-                    padding: isMobile ? "14px 16px 14px" : "24px 28px 20px",
-                    background: `linear-gradient(135deg, ${stateColor}18 0%, transparent 60%)`,
-                    borderBottom: isMobile ? "1px solid var(--border)" : "none",
-                }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2, flexWrap: "wrap" }}>
-                                <span style={{ fontSize: isMobile ? "1.3rem" : "1.6rem", fontWeight: 900, letterSpacing: "-0.04em" }}>
-                                    {asset.symbol}
-                                </span>
-                                <span className={`state-badge ${asset.structural_state}`} style={{ fontSize: "0.75rem" }}>
-                                    {STATE_EMOJIS[asset.structural_state]} {STATE_LABELS[asset.structural_state]?.replace(/^[🟢🟡🔵🔴⚪] /, "")}
-                                </span>
-                                {!isMobile && <span className="phase-tag" style={{ fontSize: "0.7rem" }}>{asset.phase}</span>}
-                            </div>
-                            <div style={{ color: "var(--text-secondary)", fontSize: "0.8rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                {asset.name}
-                            </div>
-                            {!isMobile && (
-                                <div style={{ color: "var(--text-muted)", fontSize: "0.75rem", marginTop: 2 }}>
-                                    {asset.sector}
-                                    {asset.current_price > 0 && (
-                                        <span style={{ marginLeft: 8, color: "var(--text-secondary)", fontWeight: 600 }}>
-                                            ${asset.current_price.toFixed(2)}
-                                        </span>
-                                    )}
-                                </div>
-                            )}
+                <div 
+                    className="modal-header-drag-zone"
+                    onTouchStart={isMobile ? handleTouchStart : undefined}
+                    onTouchMove={isMobile ? handleTouchMove : undefined}
+                    onTouchEnd={isMobile ? handleTouchEnd : undefined}
+                    style={{
+                        padding: isMobile ? "12px 20px 8px 20px" : "24px 28px 16px 28px",
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "flex-start",
+                        position: "sticky",
+                        top: 0,
+                        zIndex: 10,
+                        background: isMobile ? "#08080c" : "transparent",
+                        cursor: isMobile ? "grab" : "default",
+                        userSelect: "none",
+                    }}
+                >
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2, flexWrap: "wrap" }}>
+                            <span style={{ fontSize: isMobile ? "1.3rem" : "1.6rem", fontWeight: 900, letterSpacing: "-0.04em" }}>
+                                {asset.symbol}
+                            </span>
+                            <span className={`state-badge ${asset.structural_state}`} style={{ fontSize: "0.75rem" }}>
+                                {STATE_EMOJIS[asset.structural_state]} {STATE_LABELS[asset.structural_state]?.replace(/^[🟢🟡🔵🔴⚪] /, "")}
+                            </span>
+                            {!isMobile && <span className="phase-tag" style={{ fontSize: "0.7rem" }}>{asset.phase}</span>}
                         </div>
-
-                        <button
-                            onClick={onClose}
-                            style={{
-                                background: "rgba(255,255,255,0.1)",
-                                border: "1px solid rgba(255,255,255,0.1)",
-                                borderRadius: "50%",
-                                width: isMobile ? 36 : 30,
-                                height: isMobile ? 36 : 30,
-                                cursor: "pointer",
-                                color: "white",
-                                fontSize: isMobile ? "1.4rem" : "1.1rem",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                flexShrink: 0,
-                                marginLeft: 12,
-                                transition: "all 0.2s",
-                                zIndex: 10,
-                                paddingBottom: isMobile ? 4 : 2,
-                            }}
-                            onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.2)"}
-                            onMouseLeave={e => e.currentTarget.style.background = "rgba(255,255,255,0.1)"}
-                        >
-                            &times;
-                        </button>
+                        <div style={{ color: "var(--text-secondary)", fontSize: "0.8rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {asset.name}
+                        </div>
+                        {!isMobile && (
+                            <div style={{ color: "var(--text-muted)", fontSize: "0.75rem", marginTop: 2 }}>
+                                {asset.sector}
+                                {asset.current_price > 0 && (
+                                    <span style={{ marginLeft: 8, color: "var(--text-secondary)", fontWeight: 600 }}>
+                                        ${asset.current_price.toFixed(2)}
+                                    </span>
+                                )}
+                            </div>
+                        )}
                     </div>
 
+                    <button
+                        onClick={onClose}
+                        style={{
+                            background: "rgba(255,255,255,0.1)",
+                            border: "1px solid rgba(255,255,255,0.1)",
+                            borderRadius: "50%",
+                            width: isMobile ? 36 : 30,
+                            height: isMobile ? 36 : 30,
+                            cursor: "pointer",
+                            color: "white",
+                            fontSize: isMobile ? "1.4rem" : "1.1rem",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            flexShrink: 0,
+                            marginLeft: 12,
+                            transition: "all 0.2s",
+                            zIndex: 10,
+                            paddingBottom: isMobile ? 4 : 2,
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.2)"}
+                        onMouseLeave={e => e.currentTarget.style.background = "rgba(255,255,255,0.1)"}
+                    >
+                        &times;
+                    </button>
+                </div>
+
+                <div style={{
+                    padding: isMobile ? "0 20px 14px" : "0 28px 20px",
+                    background: `linear-gradient(135deg, ${stateColor}18 0%, transparent 60%)`,
+                    borderBottom: isMobile ? "1px solid var(--border)" : "none",
+                    marginTop: isMobile ? "0" : "-16px", // Adjust for sticky header padding
+                    paddingTop: isMobile ? "0" : "16px",
+                }}>
                     {/* Score row */}
                     <div style={{ display: "flex", gap: isMobile ? 12 : 20, marginTop: isMobile ? 12 : 20 }}>
                         {[
