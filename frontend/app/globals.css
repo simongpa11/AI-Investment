@@ -822,15 +822,46 @@ body {
   .dashboard-subtitle { font-size: 0.8rem; }
 
   .stats-row {
-    gap: 8px;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 12px;
   }
 
   .stat-chip {
-    padding: 8px 12px;
-    font-size: 0.8rem;
-    flex: 1;
-    min-width: 80px;
+    padding: 10px 12px;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 4px;
+    background: rgba(255,255,255,0.03);
+  }
+
+  .stat-chip-value {
+    font-size: 1.1rem;
+    line-height: 1;
+  }
+
+  .stat-chip-label {
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .stat-dot {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 6px;
+    height: 6px;
+  }
+
+  .mobile-action-bar {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+    align-items: center;
   }
 
   /* ── Section headers ── */

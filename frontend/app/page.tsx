@@ -206,248 +206,303 @@ export default function DashboardPage() {
   return (
     <>
       {/* Dashboard Header */}
-      <div className="dashboard-header">
-        {/* Title hidden on mobile */}
-        {!isMobile && (
+      <div className="dashboard-header" style={{ marginBottom: isMobile ? 12 : 24 }}>
+        {!isMobile ? (
           <>
             <h1 className="dashboard-title">Market Structural Scanner</h1>
             <p className="dashboard-subtitle">
               Detección de cambio estructural temprano · Inversión a medio plazo
             </p>
-          </>
-        )}
 
-        <div className="stats-row" style={{ alignItems: 'center' }}>
-          <div className="stat-chip">
-            <div className="stat-dot" style={{ background: "#F59E0B" }} />
-            <div>
-              <div className="stat-chip-value">{statEmerging}</div>
-              <div className="stat-chip-label">🔥 Emerging</div>
-            </div>
-          </div>
-          <div className="stat-chip">
-            <div className="stat-dot" style={{ background: "var(--accent-emerald)" }} />
-            <div>
-              <div className="stat-chip-value">{statConfirmed}</div>
-              <div className="stat-chip-label">🟢 Confirmed</div>
-            </div>
-          </div>
-          <div className="stat-chip">
-            <div className="stat-dot" style={{ background: "var(--accent-blue)" }} />
-            <div>
-              <div className="stat-chip-value">{statStructural}</div>
-              <div className="stat-chip-label">🔵 Structural</div>
-            </div>
-          </div>
-          <div className="stat-chip">
-            <div className="stat-dot" style={{ background: "var(--accent-rose)" }} />
-            <div>
-              <div className="stat-chip-value">{watchedSymbols.size}</div>
-              <div className="stat-chip-label">★ Siguiendo</div>
-            </div>
-          </div>
-
-          {/* Manual Scan Inline */}
-          <form onSubmit={handleManualScan} style={{ display: 'flex', gap: 8, alignItems: 'center', marginLeft: 16 }}>
-            <div style={{ position: "relative" }} ref={dropdownRef}>
-              <input
-                type="text"
-                placeholder="Simular ticker (ej: PLTR)"
-                value={manualTicker}
-                onChange={handleSearchInput}
-                disabled={isManualScanning}
-                autoComplete="off"
-                style={{
-                  padding: "10px 14px",
-                  borderRadius: 12,
-                  border: "1px solid rgba(255,255,255,0.1)",
-                  background: "var(--bg-card)",
-                  color: "white",
-                  fontSize: "0.875rem",
-                  width: "220px",
-                  outline: "none",
-                  transition: "all 0.2s ease",
-                }}
-              />
-              {showDropdown && (
-                <div style={{
-                  position: "absolute", top: "100%", left: 0, right: 0, marginTop: 4,
-                  background: "var(--bg-secondary)", border: "1px solid var(--border)",
-                  borderRadius: 12, boxShadow: "0 10px 40px rgba(0,0,0,0.5)",
-                  maxHeight: "250px", overflowY: "auto", zIndex: 100
-                }}>
-                  {isSearching ? <div style={{ padding: 12, fontSize: "0.8rem", color: "var(--text-muted)", textAlign: "center" }}>Buscando...</div> :
-                    searchResults.length > 0 ? (
-                      <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
-                        {searchResults.map((item, idx) => (
-                          <li key={idx} onClick={() => { setManualTicker(item.symbol); setShowDropdown(false); }}
-                            style={{ padding: "10px 12px", borderBottom: "1px solid rgba(255,255,255,0.05)", cursor: "pointer" }}
-                            onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.05)"}
-                            onMouseLeave={e => e.currentTarget.style.background = "transparent"}
-                          >
-                            <div style={{ display: "flex", justifyContent: "space-between" }}>
-                              <strong style={{ color: "var(--text-primary)" }}>{item.symbol}</strong>
-                              <span style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>{item.type}</span>
-                            </div>
-                            <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.description}</div>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : <div style={{ padding: 12, fontSize: "0.8rem", color: "var(--text-muted)", textAlign: "center" }}>Sin resultados</div>
-                  }
-                </div>
-              )}
-            </div>
-            <button type="submit" disabled={isManualScanning || !manualTicker.trim()} className="btn btn-ghost" style={{ padding: '10px 16px', borderRadius: 12 }}>
-              {isManualScanning ? "⏳" : "+ Escanear"}
-            </button>
-          </form>
-
-          {/* Scan Global — always visible */}
-          <button
-            className="btn btn-primary btn-scan"
-            onClick={handleGlobalScan}
-            disabled={scanning}
-            id="btn-trigger-scan"
-            style={{ marginLeft: "auto" }}
-          >
-            {scanning ? "⏳ Escaneando..." : "⚡ Scan Global"}
-          </button>
-        </div>
-      </div>
-
-      {/* ── FILTER AREA ────────────────────────────────────────── */}
-      {isMobile ? (
-        /* MOBILE: collapsible filter panel behind a toggle button */
-        <div style={{ marginBottom: 16 }}>
-          <button
-            onClick={() => setFiltersOpen(v => !v)}
-            style={{
-              display: "flex", alignItems: "center", gap: 6,
-              padding: "8px 14px", borderRadius: 999,
-              background: filtersOpen ? "rgba(99,102,241,0.18)" : "rgba(255,255,255,0.05)",
-              border: `1px solid ${filtersOpen ? "var(--accent-indigo)" : "rgba(255,255,255,0.1)"}`,
-              color: filtersOpen ? "var(--accent-indigo)" : "var(--text-secondary)",
-              fontSize: "0.8rem", fontWeight: 600, cursor: "pointer",
-              transition: "all 0.2s ease",
-            }}
-          >
-            <span style={{ fontSize: "0.9rem" }}>⚙</span>
-            Filtros
-            <span style={{ opacity: 0.6, fontSize: "0.7rem" }}>{filtersOpen ? "▲" : "▼"}</span>
-          </button>
-
-          {filtersOpen && (
-            <div style={{
-              marginTop: 12, padding: "16px",
-              background: "rgba(255,255,255,0.03)",
-              border: "1px solid var(--border)",
-              borderRadius: 14,
-              display: "flex", flexDirection: "column", gap: 16,
-              animation: "fadeIn 0.18s ease",
-            }}>
-              {/* States */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                <span style={{ fontSize: "0.6rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 700 }}>Estados</span>
-                <div className="filter-bar" style={{ display: "flex", gap: 8 }}>
-                  {STATE_FILTERS.map((s) => (
-                    <button key={s} onClick={() => setSelectedState(s)} className={`filter-chip ${selectedState === s ? "active" : ""}`}>
-                      {STATE_LABELS[s]}
-                    </button>
-                  ))}
+            <div className="stats-row" style={{ alignItems: 'center' }}>
+              <div className="stat-chip">
+                <div className="stat-dot" style={{ background: "#F59E0B" }} />
+                <div>
+                  <div className="stat-chip-value">{statEmerging}</div>
+                  <div className="stat-chip-label">🔥 Emerging</div>
                 </div>
               </div>
-              {/* Cap */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                <span style={{ fontSize: "0.6rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 700 }}>Tamaño</span>
-                <div className="filter-bar" style={{ display: "flex", gap: 8 }}>
-                  {CAP_FILTERS.map((c) => (
-                    <button key={c} onClick={() => setSelectedCap(c)} className={`filter-chip ${selectedCap === c ? "active" : ""}`}>
-                      {c === "all" ? "Todos" : `${c.charAt(0).toUpperCase() + c.slice(1)} Cap`}
-                    </button>
-                  ))}
+              <div className="stat-chip">
+                <div className="stat-dot" style={{ background: "var(--accent-emerald)" }} />
+                <div>
+                  <div className="stat-chip-value">{statConfirmed}</div>
+                  <div className="stat-chip-label">🟢 Confirmed</div>
                 </div>
               </div>
-              {/* Score inputs */}
-              <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                {([
-                  { label: "Structural", val: minStructural, set: setMinStructural },
-                  { label: "Narrative", val: minNarrative, set: setMinNarrative },
-                  { label: "Combined", val: minCombined, set: setMinCombined },
-                ] as const).map(({ label, val, set }) => (
-                  <div key={label} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <span style={{ fontSize: "0.65rem", color: "var(--text-muted)", whiteSpace: "nowrap" }}>{label}</span>
-                    <input type="number" value={val} onChange={e => set(parseInt(e.target.value) || 0)}
-                      style={{ width: 52, padding: "5px 7px", borderRadius: 6, background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", color: "white", fontSize: "0.8rem" }}
-                    />
+              <div className="stat-chip">
+                <div className="stat-dot" style={{ background: "var(--accent-blue)" }} />
+                <div>
+                  <div className="stat-chip-value">{statStructural}</div>
+                  <div className="stat-chip-label">🔵 Structural</div>
+                </div>
+              </div>
+              <div className="stat-chip">
+                <div className="stat-dot" style={{ background: "var(--accent-rose)" }} />
+                <div>
+                  <div className="stat-chip-value">{watchedSymbols.size}</div>
+                  <div className="stat-chip-label">★ Siguiendo</div>
+                </div>
+              </div>
+
+              {/* Desktop Manual Scan */}
+              <div ref={dropdownRef} style={{ position: "relative", marginLeft: 16 }}>
+                <form onSubmit={handleManualScan} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <input
+                    type="text"
+                    placeholder="Simular ticker (ej: PLTR)"
+                    value={manualTicker}
+                    onChange={handleSearchInput}
+                    disabled={isManualScanning}
+                    autoComplete="off"
+                    style={{
+                      padding: "10px 14px", borderRadius: 12, border: "1px solid rgba(255,255,255,0.1)",
+                      background: "var(--bg-card)", color: "white", fontSize: "0.875rem", width: "220px",
+                      outline: "none", transition: "all 0.2s ease",
+                    }}
+                  />
+                  <button type="submit" disabled={isManualScanning || !manualTicker.trim()} className="btn btn-ghost" style={{ padding: '10px 16px', borderRadius: 12 }}>
+                    {isManualScanning ? "⏳" : "+ Escanear"}
+                  </button>
+                </form>
+                {showDropdown && (
+                  <div style={{
+                    position: "absolute", top: "100%", left: 0, right: 0, marginTop: 4,
+                    background: "var(--bg-secondary)", border: "1px solid var(--border)",
+                    borderRadius: 12, boxShadow: "0 10px 40px rgba(0,0,0,0.5)",
+                    maxHeight: "250px", overflowY: "auto", zIndex: 100
+                  }}>
+                    {isSearching ? <div style={{ padding: 12, fontSize: "0.8rem", color: "var(--text-muted)", textAlign: "center" }}>Buscando...</div> :
+                      searchResults.length > 0 ? (
+                        <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
+                          {searchResults.map((item, idx) => (
+                            <li key={idx} onClick={() => { setManualTicker(item.symbol); setShowDropdown(false); }}
+                              style={{ padding: "10px 12px", borderBottom: "1px solid rgba(255,255,255,0.05)", cursor: "pointer" }}
+                              onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.05)"}
+                              onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                            >
+                              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                                <strong style={{ color: "var(--text-primary)" }}>{item.symbol}</strong>
+                                <span style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>{item.type}</span>
+                              </div>
+                              <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.description}</div>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : <div style={{ padding: 12, fontSize: "0.8rem", color: "var(--text-muted)", textAlign: "center" }}>Sin resultados</div>
+                    }
                   </div>
-                ))}
+                )}
               </div>
-            </div>
-          )}
-        </div>
-      ) : (
-        /* DESKTOP: full inline filter row */
-        <>
-          {error && (
-            <div style={{
-              padding: "16px 20px",
-              background: "rgba(244,63,94,0.1)",
-              border: "1px solid rgba(244,63,94,0.3)",
-              borderRadius: "var(--radius-md)",
-              color: "var(--accent-rose)",
-              fontSize: "0.875rem",
-              marginBottom: 24,
-            }}>
-              ⚠️ {error}
-            </div>
-          )}
 
-          {/* Filters Row */}
-          <div style={{ display: "flex", flexDirection: "column", gap: "16px", marginBottom: "24px" }}>
-            {/* States + Cap */}
-            <div style={{ display: "flex", gap: "16px", flexWrap: "wrap", alignItems: "flex-start" }}>
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                <span style={{ fontSize: "0.625rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 700, paddingLeft: 4 }}>Estados Estructurales</span>
-                <div className="filter-bar" style={{ display: "flex", gap: "8px" }}>
-                  {STATE_FILTERS.map((s) => (
-                    <button key={s} onClick={() => setSelectedState(s)} className={`filter-chip ${selectedState === s ? "active" : ""}`}>
-                      {STATE_LABELS[s]}
-                    </button>
-                  ))}
+              <button
+                className="btn btn-primary btn-scan"
+                onClick={handleGlobalScan}
+                disabled={scanning}
+                id="btn-trigger-scan"
+                style={{ marginLeft: "auto" }}
+              >
+                {scanning ? "⏳ Escaneando..." : "⚡ Scan Global"}
+              </button>
+            </div>
+
+            {error && (
+              <div style={{
+                padding: "16px 20px", background: "rgba(244,63,94,0.1)", border: "1px solid rgba(244,63,94,0.3)",
+                borderRadius: "var(--radius-md)", color: "var(--accent-rose)", fontSize: "0.875rem", marginBottom: 24, marginTop: 24
+              }}>
+                ⚠️ {error}
+              </div>
+            )}
+
+            {/* Desktop Filters Row */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "16px", marginBottom: "24px", marginTop: 24 }}>
+              <div style={{ display: "flex", gap: "16px", flexWrap: "wrap", alignItems: "flex-start" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  <span style={{ fontSize: "0.625rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 700, paddingLeft: 4 }}>Estados Estructurales</span>
+                  <div className="filter-bar" style={{ display: "flex", gap: "8px" }}>
+                    {STATE_FILTERS.map((s) => (
+                      <button key={s} onClick={() => setSelectedState(s)} className={`filter-chip ${selectedState === s ? "active" : ""}`}>
+                        {STATE_LABELS[s]}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  <span style={{ fontSize: "0.625rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 700, paddingLeft: 4 }}>Tamaño empresa</span>
+                  <div className="filter-bar" style={{ display: "flex", gap: "8px" }}>
+                    {CAP_FILTERS.map((c) => (
+                      <button key={c} onClick={() => setSelectedCap(c)} className={`filter-chip ${selectedCap === c ? "active" : ""}`}>
+                        {c === "all" ? "Todos" : `${c.charAt(0).toUpperCase() + c.slice(1)} Cap`}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                <span style={{ fontSize: "0.625rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 700, paddingLeft: 4 }}>Tamaño empresa</span>
-                <div className="filter-bar" style={{ display: "flex", gap: "8px" }}>
-                  {CAP_FILTERS.map((c) => (
-                    <button key={c} onClick={() => setSelectedCap(c)} className={`filter-chip ${selectedCap === c ? "active" : ""}`}>
-                      {c === "all" ? "Todos" : `${c.charAt(0).toUpperCase() + c.slice(1)} Cap`}
-                    </button>
-                  ))}
+              <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Structural</span>
+                  <input type="number" value={minStructural} onChange={(e) => setMinStructural(parseInt(e.target.value) || 0)}
+                    style={{ width: 56, padding: '6px 8px', borderRadius: 6, background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', fontSize: '0.8rem' }} />
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Narrative</span>
+                  <input type="number" value={minNarrative} onChange={(e) => setMinNarrative(parseInt(e.target.value) || 0)}
+                    style={{ width: 56, padding: '6px 8px', borderRadius: 6, background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', fontSize: '0.8rem' }} />
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Combined</span>
+                  <input type="number" value={minCombined} onChange={(e) => setMinCombined(parseInt(e.target.value) || 0)}
+                    style={{ width: 56, padding: '6px 8px', borderRadius: 6, background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', fontSize: '0.8rem' }} />
                 </div>
               </div>
             </div>
-            <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Structural</span>
-                <input type="number" value={minStructural} onChange={(e) => setMinStructural(parseInt(e.target.value) || 0)}
-                  style={{ width: 56, padding: '6px 8px', borderRadius: 6, background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', fontSize: '0.8rem' }} />
+          </>
+        ) : (
+          /* MOBILE: High-Density Action Center */
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div className="stats-row" style={{ marginTop: 0 }}>
+              <div className="stat-chip" style={{ position: 'relative' }}>
+                <div className="stat-dot" style={{ background: "#F59E0B" }} />
+                <div className="stat-chip-value">{statEmerging}</div>
+                <div className="stat-chip-label">Emerging</div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Narrative</span>
-                <input type="number" value={minNarrative} onChange={(e) => setMinNarrative(parseInt(e.target.value) || 0)}
-                  style={{ width: 56, padding: '6px 8px', borderRadius: 6, background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', fontSize: '0.8rem' }} />
+              <div className="stat-chip" style={{ position: 'relative' }}>
+                <div className="stat-dot" style={{ background: "var(--accent-emerald)" }} />
+                <div className="stat-chip-value">{statConfirmed}</div>
+                <div className="stat-chip-label">Confirmed</div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Combined</span>
-                <input type="number" value={minCombined} onChange={(e) => setMinCombined(parseInt(e.target.value) || 0)}
-                  style={{ width: 56, padding: '6px 8px', borderRadius: 6, background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', fontSize: '0.8rem' }} />
+              <div className="stat-chip" style={{ position: 'relative' }}>
+                <div className="stat-dot" style={{ background: "var(--accent-blue)" }} />
+                <div className="stat-chip-value">{statStructural}</div>
+                <div className="stat-chip-label">Structural</div>
+              </div>
+              <div className="stat-chip" style={{ position: 'relative' }}>
+                <div className="stat-dot" style={{ background: "var(--accent-rose)" }} />
+                <div className="stat-chip-value">{watchedSymbols.size}</div>
+                <div className="stat-chip-label">Siguiendo</div>
               </div>
             </div>
+
+            <div className="mobile-action-bar">
+              <div ref={dropdownRef} style={{ flex: 1, display: 'flex', position: 'relative' }}>
+                <form onSubmit={handleManualScan} style={{ flex: 1, display: 'flex' }}>
+                  <input
+                    type="text"
+                    placeholder="Ticker..."
+                    value={manualTicker}
+                    onChange={handleSearchInput}
+                    disabled={isManualScanning}
+                    autoComplete="off"
+                    style={{
+                      flex: 1, padding: "10px 12px", borderRadius: "10px 0 0 10px", border: "1px solid rgba(255,255,255,0.1)",
+                      borderRight: 'none', background: "var(--bg-card)", color: "white", fontSize: "0.85rem", outline: "none",
+                    }}
+                  />
+                  <button type="submit" disabled={isManualScanning || !manualTicker.trim()} className="btn btn-ghost"
+                    style={{ borderRadius: "0 10px 10px 0", padding: '0 12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                    {isManualScanning ? "⏳" : "🔍"}
+                  </button>
+                </form>
+                {showDropdown && (
+                  <div style={{
+                    position: "absolute", top: "100%", left: 0, right: 0, marginTop: 4,
+                    background: "var(--bg-secondary)", border: "1px solid var(--border)",
+                    borderRadius: 12, boxShadow: "0 10px 40px rgba(0,0,0,0.5)",
+                    maxHeight: "200px", overflowY: "auto", zIndex: 100
+                  }}>
+                    {searchResults.map((item, idx) => (
+                      <div key={idx} onClick={() => { setManualTicker(item.symbol); setShowDropdown(false); }}
+                        style={{ padding: "10px 12px", borderBottom: "1px solid rgba(255,255,255,0.05)", cursor: "pointer" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: '0.8rem' }}>
+                          <strong style={{ color: "var(--text-primary)" }}>{item.symbol}</strong>
+                          <span style={{ fontSize: "0.65rem", color: "var(--text-muted)" }}>{item.type}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <button
+                className="btn btn-primary btn-scan"
+                onClick={handleGlobalScan}
+                disabled={scanning}
+                style={{ padding: '10px 14px', borderRadius: 10, minWidth: '44px' }}
+              >
+                {scanning ? "⏳" : "⚡"}
+              </button>
+
+              <button
+                onClick={() => setFiltersOpen(v => !v)}
+                style={{
+                  display: "flex", alignItems: "center", justifyContent: 'center',
+                  padding: "10px", borderRadius: 10, minWidth: '44px',
+                  background: filtersOpen ? "rgba(99,102,241,0.18)" : "rgba(255,255,255,0.05)",
+                  border: `1px solid ${filtersOpen ? "var(--accent-indigo)" : "rgba(255,255,255,0.1)"}`,
+                  color: filtersOpen ? "var(--accent-indigo)" : "var(--text-secondary)",
+                  cursor: "pointer", transition: "all 0.2s ease",
+                }}
+              >
+                <span style={{ fontSize: "1.1rem" }}>⚙️</span>
+              </button>
+            </div>
+
+            {error && (
+              <div style={{
+                padding: "16px", background: "rgba(244,63,94,0.1)", border: "1px solid rgba(244,63,94,0.3)",
+                borderRadius: 12, color: "var(--accent-rose)", fontSize: "0.8rem"
+              }}>
+                ⚠️ {error}
+              </div>
+            )}
+
+            {/* Mobile Collapsible Filter Panel */}
+            {filtersOpen && (
+              <div style={{
+                marginTop: 0, padding: "16px",
+                background: "rgba(255,255,255,0.03)", border: "1px solid var(--border)",
+                borderRadius: 14, display: "flex", flexDirection: "column", gap: 16,
+                animation: "fadeIn 0.18s ease",
+              }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  <span style={{ fontSize: "0.6rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 700 }}>Estados</span>
+                  <div className="filter-bar" style={{ display: "flex", gap: 8 }}>
+                    {STATE_FILTERS.map((s) => (
+                      <button key={s} onClick={() => setSelectedState(s)} className={`filter-chip ${selectedState === s ? "active" : ""}`}>
+                        {STATE_LABELS[s]}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  <span style={{ fontSize: "0.6rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 700 }}>Tamaño</span>
+                  <div className="filter-bar" style={{ display: "flex", gap: 8 }}>
+                    {CAP_FILTERS.map((c) => (
+                      <button key={c} onClick={() => setSelectedCap(c)} className={`filter-chip ${selectedCap === c ? "active" : ""}`}>
+                        {c === "all" ? "Todos" : `${c.charAt(0).toUpperCase() + c.slice(1)} Cap`}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                  {([
+                    { label: "Structural", val: minStructural, set: setMinStructural },
+                    { label: "Narrative", val: minNarrative, set: setMinNarrative },
+                    { label: "Combined", val: minCombined, set: setMinCombined },
+                  ] as const).map(({ label, val, set }) => (
+                    <div key={label} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ fontSize: "0.65rem", color: "var(--text-muted)", whiteSpace: "nowrap" }}>{label}</span>
+                      <input type="number" value={val} onChange={e => set(parseInt(e.target.value) || 0)}
+                        style={{ width: 52, padding: "5px 7px", borderRadius: 6, background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", color: "white", fontSize: "0.8rem" }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
-        </>
-      )}
+        )}
+      </div>
 
       {loading && (
         <div className="asset-grid" style={{ marginBottom: 32 }}>
