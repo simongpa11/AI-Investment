@@ -216,7 +216,8 @@ export function DossierModal({ asset, narrative, onClose }: DossierModalProps) {
                     height: "100%",
                     zIndex: 10000,
                     overflowY: "auto",
-                    background: "#08080c", // Very dark solid background
+                    overflowX: "hidden", // Prevent horizontal overflow
+                    background: "#08080c", 
                     animation: translateY === 0 ? "mobileSlideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1)" : "none",
                     display: "flex",
                     flexDirection: "column",
@@ -231,6 +232,7 @@ export function DossierModal({ asset, narrative, onClose }: DossierModalProps) {
                     width: "min(840px, 95vw)",
                     maxHeight: "90vh",
                     overflowY: "auto",
+                    overflowX: "hidden",
                     background: "var(--bg-card)",
                     border: "1px solid var(--border)",
                     borderRadius: "var(--radius-xl)",
@@ -371,7 +373,11 @@ export function DossierModal({ asset, narrative, onClose }: DossierModalProps) {
                         overflowX: "auto",
                         scrollbarWidth: "none",
                         WebkitOverflowScrolling: "touch" as any,
-                        background: isMobile ? "rgba(255,255,255,0.02)" : "transparent",
+                        background: isMobile ? "rgba(8, 8, 12, 0.95)" : "transparent",
+                        backdropFilter: isMobile ? "blur(10px)" : "none",
+                        position: isMobile ? "sticky" : "relative",
+                        top: isMobile ? 64 : 0, // Below the sticky header
+                        zIndex: 9,
                     }}
                     onTouchStart={(e) => e.stopPropagation()}
                     onTouchMove={(e) => e.stopPropagation()}
@@ -560,7 +566,7 @@ export function DossierModal({ asset, narrative, onClose }: DossierModalProps) {
                             </ResponsiveContainer>
                         )}
 
-                        <div style={{ marginTop: 24, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                        <div style={{ marginTop: 24, display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: isMobile ? 24 : 16 }}>
                             {/* Targets Column */}
                             <div>
                                 <div style={{ fontSize: "0.65rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>Objetivos de Precio</div>
