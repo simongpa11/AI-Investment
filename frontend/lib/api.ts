@@ -22,6 +22,13 @@ export interface StructuralScore {
     distance_from_52w_high: number;
     distance_from_90d_high: number;
     volume_spike_ratio: number;
+    trend_extension: number;
+    market_cap_category: 'large' | 'mid' | 'small';
+    targets: {
+        short_term: { target: number; return_pct: number };
+        mid_term: { target: number; return_pct: number };
+        long_term: { target: number; return_pct: number };
+    };
     details_json?: Record<string, unknown>;
     narrative?: NarrativeScore | null;
 }

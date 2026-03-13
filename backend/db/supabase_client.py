@@ -33,6 +33,7 @@ async def get_structural_scores(phase: Optional[str] = None, limit: int = 100):
     query = (
         client.table("structural_scores")
         .select("*")
+        .order("date", desc=True)
         .order("trend_persistence_score", desc=True)
         .limit(limit)
     )
@@ -105,14 +106,25 @@ async def get_narrative_scores(symbol: str):
     )
 
 
-async def get_latest_scores(symbols: Optional[List[str]] = None):
-    """Get the most recent structural + narrative score for each symbol."""
-    client = get_client()
-    q = (
-        client.table("structural_scores")
-        .select("*, narrative_scores!inner(*)")
-        .order("date", desc=True)
-    )
     if symbols:
         q = q.in_("symbol", symbols)
     return q.execute()
+
+
+async def get_latest_dossier_data(symbol: str):
+    """Retrieve the most recent dossier data (profile, etc) to avoid re-generating permanent info."""
+    client = get_client()
+    res = (
+        client.table("structural_scores")
+        .select("details_json")
+        .eq("symbol", symbol.upper())
+        .not_.is_("details_json", "null")
+        .order("date", desc=True)
+        .limit(5) # Look back a few records
+        .execute()
+    )
+    for r in (res.data or []):
+        dossier = r.get("details_json", {}).get("dossier")
+        if dossier and dossier.get("company_profile"):
+            return dossier
+    return None

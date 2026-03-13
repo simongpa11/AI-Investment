@@ -23,6 +23,8 @@ CREATE TABLE IF NOT EXISTS structural_scores (
     ma50 FLOAT DEFAULT 0.0,
     ma200 FLOAT DEFAULT 0.0,
     details_json JSONB,
+    market_cap_category TEXT DEFAULT 'small',
+    trend_extension FLOAT DEFAULT 0.0,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE(symbol, date)
 );

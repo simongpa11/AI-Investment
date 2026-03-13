@@ -16,7 +16,7 @@ const STATE_COLORS: Record<string, string> = {
     none: "#4B5563",
 };
 
-type TabType = "scores" | "price" | "simulator";
+type TabType = "summary" | "scores" | "price" | "simulator";
 type Timeframe = "1D" | "1S" | "1M" | "1A" | "MAX";
 
 interface DossierModalProps {
@@ -25,8 +25,20 @@ interface DossierModalProps {
     onClose: () => void;
 }
 
+function useIsMobile() {
+    const [isMobile, setIsMobile] = useState(false);
+    useEffect(() => {
+        const check = () => setIsMobile(window.innerWidth <= 768);
+        check();
+        window.addEventListener("resize", check);
+        return () => window.removeEventListener("resize", check);
+    }, []);
+    return isMobile;
+}
+
 export function DossierModal({ asset, narrative, onClose }: DossierModalProps) {
-    const [activeTab, setActiveTab] = useState<TabType>("scores");
+    const [activeTab, setActiveTab] = useState<TabType>("price");
+    const isMobile = useIsMobile();
 
     // History Tab State
     const [history, setHistory] = useState<ScoreHistory[]>([]);
@@ -125,15 +137,17 @@ export function DossierModal({ asset, narrative, onClose }: DossierModalProps) {
         <button
             onClick={() => setActiveTab(id)}
             style={{
-                padding: "12px 16px",
+                padding: isMobile ? "10px 12px" : "12px 16px",
                 background: "transparent",
                 border: "none",
                 borderBottom: activeTab === id ? `2px solid ${stateColor}` : "2px solid transparent",
                 color: activeTab === id ? "var(--text-primary)" : "var(--text-muted)",
-                fontSize: "0.875rem",
+                fontSize: isMobile ? "0.75rem" : "0.875rem",
                 fontWeight: activeTab === id ? 600 : 500,
                 cursor: "pointer",
-                transition: "all 0.2s ease"
+                transition: "all 0.2s ease",
+                whiteSpace: "nowrap",
+                flexShrink: 0,
             }}
         >
             {label}
@@ -152,7 +166,17 @@ export function DossierModal({ asset, narrative, onClose }: DossierModalProps) {
                 }}
             />
 
-            <div style={{
+            <div style={isMobile ? {
+                position: "fixed",
+                top: 0, left: 0, right: 0, bottom: 0,
+                zIndex: 1001,
+                width: "100%",
+                height: "100%",
+                overflowY: "auto",
+                background: "var(--bg-primary)",
+                animation: "slideUp 0.2s ease",
+                padding: "0 0 80px 0",
+            } : {
                 position: "fixed",
                 top: "50%", left: "50%",
                 transform: "translate(-50%, -50%)",
@@ -169,71 +193,75 @@ export function DossierModal({ asset, narrative, onClose }: DossierModalProps) {
             }}>
                 {/* Header strip */}
                 <div style={{
-                    padding: "24px 28px 20px",
+                    padding: isMobile ? "14px 16px 14px" : "24px 28px 20px",
                     background: `linear-gradient(135deg, ${stateColor}18 0%, transparent 60%)`,
+                    borderBottom: isMobile ? "1px solid var(--border)" : "none",
                 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                        <div>
-                            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
-                                <span style={{ fontSize: "1.6rem", fontWeight: 900, letterSpacing: "-0.04em" }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2, flexWrap: "wrap" }}>
+                                <span style={{ fontSize: isMobile ? "1.3rem" : "1.6rem", fontWeight: 900, letterSpacing: "-0.04em" }}>
                                     {asset.symbol}
                                 </span>
-                                <span className={`state-badge ${asset.structural_state}`} style={{ fontSize: "0.8rem" }}>
+                                <span className={`state-badge ${asset.structural_state}`} style={{ fontSize: "0.75rem" }}>
                                     {STATE_EMOJIS[asset.structural_state]} {STATE_LABELS[asset.structural_state]?.replace(/^[🟢🟡🔵🔴⚪] /, "")}
                                 </span>
-                                <span className="phase-tag" style={{ fontSize: "0.7rem" }}>{asset.phase}</span>
+                                {!isMobile && <span className="phase-tag" style={{ fontSize: "0.7rem" }}>{asset.phase}</span>}
                             </div>
-                            <div style={{ color: "var(--text-secondary)", fontSize: "0.875rem" }}>
+                            <div style={{ color: "var(--text-secondary)", fontSize: "0.8rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                                 {asset.name}
                             </div>
-                            <div style={{ color: "var(--text-muted)", fontSize: "0.75rem", marginTop: 2 }}>
-                                {asset.sector}
-                                {asset.current_price > 0 && (
-                                    <span style={{ marginLeft: 8, color: "var(--text-secondary)", fontWeight: 600 }}>
-                                        ${asset.current_price.toFixed(2)}
-                                    </span>
-                                )}
-                            </div>
+                            {!isMobile && (
+                                <div style={{ color: "var(--text-muted)", fontSize: "0.75rem", marginTop: 2 }}>
+                                    {asset.sector}
+                                    {asset.current_price > 0 && (
+                                        <span style={{ marginLeft: 8, color: "var(--text-secondary)", fontWeight: 600 }}>
+                                            ${asset.current_price.toFixed(2)}
+                                        </span>
+                                    )}
+                                </div>
+                            )}
                         </div>
 
                         <button
                             onClick={onClose}
                             style={{
                                 background: "rgba(255,255,255,0.06)", border: "1px solid var(--border)",
-                                borderRadius: "50%", width: 32, height: 32, cursor: "pointer",
-                                color: "var(--text-secondary)", fontSize: "1rem",
+                                borderRadius: "50%", width: isMobile ? 40 : 32, height: isMobile ? 40 : 32,
+                                cursor: "pointer", color: "var(--text-secondary)", fontSize: "1.1rem",
                                 display: "flex", alignItems: "center", justifyContent: "center",
+                                flexShrink: 0, marginLeft: 12,
                             }}
                         >×</button>
                     </div>
 
                     {/* Score row */}
-                    <div style={{ display: "flex", gap: 20, marginTop: 20 }}>
+                    <div style={{ display: "flex", gap: isMobile ? 12 : 20, marginTop: isMobile ? 12 : 20 }}>
                         {[
                             { label: "Structural", value: asset.trend_persistence_score, color: "var(--score-structural)" },
                             { label: "Narrative", value: narrative?.narrative_persistence_score ?? 0, color: "var(--score-narrative)" },
                             { label: "Combined", value: combined, color: "var(--score-combined)" },
                         ].map((s) => (
                             <div key={s.label} style={{ flex: 1 }}>
-                                <div style={{ fontSize: "0.65rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>
+                                <div style={{ fontSize: "0.6rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>
                                     {s.label}
                                 </div>
-                                <div style={{ fontSize: "2rem", fontWeight: 800, color: s.color, letterSpacing: "-0.04em", lineHeight: 1 }}>
+                                <div style={{ fontSize: isMobile ? "1.5rem" : "2rem", fontWeight: 800, color: s.color, letterSpacing: "-0.04em", lineHeight: 1 }}>
                                     {s.value}
                                 </div>
-                                <div style={{ height: 4, background: "rgba(255,255,255,0.06)", borderRadius: 2, marginTop: 6 }}>
+                                <div style={{ height: 3, background: "rgba(255,255,255,0.06)", borderRadius: 2, marginTop: 5 }}>
                                     <div style={{ width: `${Math.max(0, s.value)}%`, height: "100%", background: s.color, borderRadius: 2, transition: "width 0.5s ease" }} />
                                 </div>
                             </div>
                         ))}
                         <div style={{ flex: 1 }}>
-                            <div style={{ fontSize: "0.65rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>
-                                Activo desde
+                            <div style={{ fontSize: "0.6rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>
+                                {isMobile ? "Días" : "Activo desde"}
                             </div>
-                            <div style={{ fontSize: "2rem", fontWeight: 800, color: "var(--text-primary)", letterSpacing: "-0.04em", lineHeight: 1 }}>
+                            <div style={{ fontSize: isMobile ? "1.5rem" : "2rem", fontWeight: 800, color: "var(--text-primary)", letterSpacing: "-0.04em", lineHeight: 1 }}>
                                 {asset.duration_days}d
                             </div>
-                            <div style={{ fontSize: "0.7rem", color: "var(--text-muted)", marginTop: 6 }}>
+                            <div style={{ fontSize: "0.65rem", color: "var(--text-muted)", marginTop: 5 }}>
                                 Vol ×{asset.volume_spike_ratio?.toFixed(1) ?? "—"}
                             </div>
                         </div>
@@ -241,15 +269,139 @@ export function DossierModal({ asset, narrative, onClose }: DossierModalProps) {
                 </div>
 
                 {/* TABS */}
-                <div style={{ display: "flex", borderBottom: "1px solid var(--border)", margin: "0 28px" }}>
-                    <TabButton id="scores" label="Historial de Scores" />
-                    <TabButton id="price" label="Evolución Estructural" />
-                    <TabButton id="simulator" label="Simulador de Estrategia" />
+                <div style={{
+                    display: "flex",
+                    borderBottom: "1px solid var(--border)",
+                    margin: isMobile ? "0" : "0 28px",
+                    overflowX: "auto",
+                    scrollbarWidth: "none",
+                    WebkitOverflowScrolling: "touch" as any,
+                }}>
+                    <TabButton id="price" label={isMobile ? "📈 Precio" : "Evolución Estructural"} />
+                    <TabButton id="scores" label={isMobile ? "📊 Scores" : "Historial de Scores"} />
+                    <TabButton id="simulator" label={isMobile ? "🎯 Simular" : "Simulador de Estrategia"} />
+                    <TabButton id="summary" label={isMobile ? "📋 Resumen" : "Resumen"} />
                 </div>
+
+                {/* TAB CONTENT: SUMMARY */}
+                {activeTab === "summary" && (
+                    <div style={{ padding: isMobile ? "16px" : "24px 28px", animation: "fadeIn 0.3s ease" }}>
+                        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: "16px" }}>
+                            {/* Section 1: Permanent Profile */}
+                            <div style={{ 
+                                background: "rgba(255,255,255,0.02)", 
+                                border: "1px solid var(--border)", 
+                                borderRadius: 12, 
+                                padding: "20px",
+                                position: "relative",
+                                overflow: "hidden"
+                            }}>
+                                <div style={{ 
+                                    position: "absolute", top: 0, left: 0, width: "3px", height: "100%", 
+                                    background: "var(--accent-blue)" 
+                                }} />
+                                <h3 style={{ 
+                                    fontSize: "0.95rem", fontWeight: 700, marginBottom: 10, 
+                                    display: "flex", alignItems: "center", gap: 8,
+                                    color: "var(--text-primary)"
+                                }}>
+                                    🏢 Perfil de la Empresa
+                                </h3>
+                                <div style={{ 
+                                    color: "var(--text-secondary)", lineHeight: 1.6, fontSize: "0.875rem",
+                                    letterSpacing: "0.01em"
+                                }}>
+                                    {(asset.details_json as any)?.dossier?.company_profile || (
+                                        <div style={{ color: "var(--text-muted)", fontStyle: "italic", fontSize: "0.8rem" }}>
+                                            No hay descripción general disponible todavía.
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Section 2: Current Context/Rationale */}
+                            <div style={{ 
+                                background: "linear-gradient(135deg, rgba(16,185,129,0.07) 0%, rgba(59,130,246,0.07) 100%)", 
+                                border: "1px solid rgba(16,185,129,0.2)", 
+                                borderRadius: 12, 
+                                padding: "20px",
+                                position: "relative",
+                                overflow: "hidden"
+                            }}>
+                                <div style={{ 
+                                    position: "absolute", top: 0, left: 0, width: "3px", height: "100%", 
+                                    background: "var(--accent-emerald)" 
+                                }} />
+                                <h3 style={{ 
+                                    fontSize: "0.95rem", fontWeight: 700, marginBottom: 10, 
+                                    display: "flex", alignItems: "center", gap: 8,
+                                    color: "var(--text-primary)"
+                                }}>
+                                    🎯 Contexto Actual y Tesis
+                                </h3>
+                                <div style={{ 
+                                    color: "var(--text-secondary)", lineHeight: 1.6, fontSize: "0.875rem",
+                                    letterSpacing: "0.01em"
+                                }}>
+                                    {(asset.details_json as any)?.dossier?.trend_rationale || (
+                                        <div style={{ color: "var(--text-muted)", fontStyle: "italic", fontSize: "0.8rem" }}>
+                                            Estamos analizando el contexto y la tendencia actual.
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Info Banner & Button Footer */}
+                            <div style={{ 
+                                gridColumn: "span 2",
+                                display: "flex", 
+                                alignItems: "center", 
+                                justifyContent: "space-between",
+                                gap: 20,
+                                marginTop: 4,
+                                padding: "10px 16px", 
+                                background: "rgba(255,255,255,0.02)", 
+                                borderRadius: 10, 
+                                border: "1px dashed var(--border)"
+                            }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                                    <span style={{ fontSize: "1rem" }}>💡</span>
+                                    <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", margin: 0 }}>
+                                        El perfil es <b>permanente</b>. El contexto se actualiza automáticamente.
+                                    </p>
+                                </div>
+                                
+                                <button 
+                                    onClick={async (e) => {
+                                        const btn = e.currentTarget;
+                                        btn.innerText = "✨ Analizando con Gemini...";
+                                        btn.disabled = true;
+                                        btn.style.opacity = "0.7";
+                                        try {
+                                            await api.rescan(asset.symbol);
+                                            window.location.reload(); 
+                                        } catch (err) {
+                                            btn.innerText = "❌ Error";
+                                            btn.disabled = false;
+                                            btn.style.opacity = "1";
+                                        }
+                                    }}
+                                    className="btn-primary" 
+                                    style={{ 
+                                        padding: "8px 16px", borderRadius: 8, fontSize: "0.8rem",
+                                        fontWeight: 600, boxShadow: "0 4px 12px rgba(108, 99, 255, 0.2)"
+                                    }}
+                                >
+                                    ✨ Recalcular Resumen Completo
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* TAB CONTENT: SCORES */}
                 {activeTab === "scores" && (
-                    <div style={{ padding: "24px 28px 0", animation: "fadeIn 0.2s ease" }}>
+                    <div style={{ padding: isMobile ? "16px" : "24px 28px 0", animation: "fadeIn 0.2s ease" }}>
                         {loadingHistory && (
                             <div style={{ height: 220, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)", fontSize: "0.875rem" }}>
                                 Cargando historial...
@@ -299,68 +451,61 @@ export function DossierModal({ asset, narrative, onClose }: DossierModalProps) {
                             </ResponsiveContainer>
                         )}
 
-                        <div style={{ marginTop: 20, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                        <div style={{ marginTop: 24, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                            {/* Targets Column */}
                             <div>
-                                <div style={{ fontSize: "0.65rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>Señales detectadas</div>
-                                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                                    {asset.volume_spike_ratio > 1.3 && (
-                                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                            <span style={{ fontSize: "1rem" }}>📊</span>
-                                            <div>
-                                                <div style={{ fontSize: "0.75rem", fontWeight: 600 }}>Pico Vol. ×{asset.volume_spike_ratio.toFixed(2)}</div>
+                                <div style={{ fontSize: "0.65rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>Objetivos de Precio</div>
+                                {asset.targets ? (
+                                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                                        {[
+                                            { label: "Corto Plazo (1-2w)", data: asset.targets.short_term, color: "var(--accent-emerald)" },
+                                            { label: "Medio Plazo (1-2m)", data: asset.targets.mid_term, color: "var(--accent-blue)" },
+                                            { label: "Largo Plazo (3-6m)", data: asset.targets.long_term, color: "var(--accent-indigo)" },
+                                        ].map((t) => {
+                                            if (!t.data) return null;
+                                            return (
+                                                <div key={t.label} style={{
+                                                    padding: "10px 12px", background: "rgba(255,255,255,0.03)", border: "1px solid var(--border)",
+                                                    borderRadius: "var(--radius-md)", display: "flex", justifyContent: "space-between", alignItems: "center"
+                                                }}>
+                                                    <div>
+                                                        <div style={{ fontSize: "0.65rem", color: "var(--text-muted)", marginBottom: 2 }}>{t.label}</div>
+                                                        <div style={{ fontSize: "1rem", fontWeight: 700, color: "var(--text-primary)" }}>${t.data.target?.toFixed(2) || "—"}</div>
+                                                    </div>
+                                                    <div style={{ textAlign: "right" }}>
+                                                        <div style={{ fontSize: "0.85rem", fontWeight: 600, color: t.color }}>+{t.data.return_pct || 0}%</div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+
+                                        {/* Trend Extension Hint */}
+                                        <div style={{ 
+                                            padding: "8px 10px", 
+                                            background: asset.trend_extension > 2.5 ? "rgba(244,63,94,0.08)" : "rgba(16,185,129,0.05)",
+                                            border: `1px solid ${asset.trend_extension > 2.5 ? "rgba(244,63,94,0.15)" : "rgba(16,185,129,0.1)"}`,
+                                            borderRadius: 8, marginTop: 4
+                                        }}>
+                                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                                <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)" }}>Extensión de Tendencia:</span>
+                                                <span style={{ 
+                                                    fontSize: "0.75rem", fontWeight: 700, 
+                                                    color: asset.trend_extension > 3.0 ? "var(--accent-rose)" : asset.trend_extension > 2.0 ? "var(--accent-amber)" : "var(--accent-emerald)" 
+                                                }}>{asset.trend_extension}</span>
                                             </div>
+                                            <p style={{ fontSize: "0.65rem", color: "var(--text-muted)", marginTop: 4, lineHeight: 1.3 }}>
+                                                {asset.trend_extension > 3.0 ? "⚠️ Tendencia sobreextendida. Riesgo de retroceso alto." : 
+                                                 asset.trend_extension > 2.0 ? "⚠️ Movimiento fuerte. Targets ajustados por precaución." : 
+                                                 "✅ Tendencia sana. Espacio para crecimiento."}
+                                            </p>
                                         </div>
-                                    )}
-                                    {asset.distance_from_52w_high !== undefined && asset.distance_from_52w_high < 0.15 && (
-                                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                            <span style={{ fontSize: "1rem" }}>🏔️</span>
-                                            <div>
-                                                <div style={{ fontSize: "0.75rem", fontWeight: 600 }}>{(asset.distance_from_52w_high * 100).toFixed(1)}% de Máx. 52 Semanas</div>
-                                            </div>
-                                        </div>
-                                    )}
-                                    {asset.volatility_compression_days >= 20 && (
-                                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                            <span style={{ fontSize: "1rem" }}>🔄</span>
-                                            <div>
-                                                <div style={{ fontSize: "0.75rem", fontWeight: 600 }}>Compresión {asset.volatility_compression_days}d</div>
-                                            </div>
-                                        </div>
-                                    )}
-                                    {asset.relative_strength_market > 0.02 && (
-                                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                            <span style={{ fontSize: "1rem" }}>🏛️</span>
-                                            <div>
-                                                <div style={{ fontSize: "0.75rem", fontWeight: 600 }}>🏛️ RS-Mkt +{(asset.relative_strength_market * 100).toFixed(1)}% vs SPY</div>
-                                            </div>
-                                        </div>
-                                    )}
-                                    {asset.trend_quality > 0.6 && (
-                                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                            <span style={{ fontSize: "1rem" }}>💎</span>
-                                            <div>
-                                                <div style={{ fontSize: "0.75rem", fontWeight: 600 }}>💎 Calidad de tendencia: {(asset.trend_quality * 100).toFixed(0)}%</div>
-                                            </div>
-                                        </div>
-                                    )}
-                                    {asset.atr_expansion > 1.2 && (
-                                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                            <span style={{ fontSize: "1rem" }}>⚡</span>
-                                            <div>
-                                                <div style={{ fontSize: "0.75rem", fontWeight: 600 }}>⚡ Expansión ATR ×{asset.atr_expansion.toFixed(1)}</div>
-                                            </div>
-                                        </div>
-                                    )}
-                                    {asset.ma200 > 0 && asset.current_price > asset.ma200 && (
-                                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                            <span style={{ fontSize: "1rem" }}>📈</span>
-                                            <div>
-                                                <div style={{ fontSize: "0.75rem", fontWeight: 600 }}>Sobre MA200</div>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
+                                    </div>
+                                ) : (
+                                    <div style={{ color: "var(--text-muted)", fontSize: "0.8rem" }}>Calculando targets...</div>
+                                )}
                             </div>
+
+                            {/* Narrative Column */}
                             <div>
                                 <div style={{ fontSize: "0.65rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>Inteligencia narrativa</div>
                                 {narrative ? (
@@ -392,7 +537,7 @@ export function DossierModal({ asset, narrative, onClose }: DossierModalProps) {
 
                 {/* TAB CONTENT: PRICE EXTENDED */}
                 {activeTab === "price" && (
-                    <div style={{ padding: "24px 28px 0", animation: "fadeIn 0.2s ease" }}>
+                    <div style={{ padding: isMobile ? "16px 16px 0" : "24px 28px 0", animation: "fadeIn 0.2s ease" }}>
                         <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
                             {["1D", "1S", "1M", "1A", "MAX"].map((tf) => (
                                 <button
@@ -449,7 +594,7 @@ export function DossierModal({ asset, narrative, onClose }: DossierModalProps) {
 
                 {/* TAB CONTENT: SIMULATOR */}
                 {activeTab === "simulator" && (
-                    <div style={{ padding: "24px 28px 0", animation: "fadeIn 0.2s ease", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 32 }}>
+                    <div style={{ padding: isMobile ? "16px" : "24px 28px 0", animation: "fadeIn 0.2s ease", display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: isMobile ? 20 : 32 }}>
                         <div>
                             <h3 style={{ fontSize: "1rem", color: "var(--text-primary)", marginBottom: 20 }}>Simulador de Inversión</h3>
 
@@ -509,19 +654,53 @@ export function DossierModal({ asset, narrative, onClose }: DossierModalProps) {
                                 </div>
                             </div>
 
-                            <div style={{ background: "rgba(108,99,255,0.05)", border: "1px solid rgba(108,99,255,0.2)", borderRadius: 12, padding: 20 }}>
-                                <h4 style={{ color: "var(--accent-indigo)", fontSize: "0.875rem", marginBottom: 12 }}>🤖 Recomendación Estructural (Auto)</h4>
+                            <div style={{ background: "rgba(108,99,255,0.05)", border: "1px solid rgba(108,99,255,0.2)", borderRadius: 12, padding: "20px 20px 16px" }}>
+                                <h4 style={{ color: "var(--accent-indigo)", fontSize: "0.875rem", marginBottom: 12 }}>🤖 Escenarios Estructurales (Auto)</h4>
                                 <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: 16, lineHeight: 1.5 }}>
-                                    Basado en la volatilidad reciente (ATR) y el estado estructural <b>{STATE_LABELS[asset.structural_state]?.replace(/^[🟢🟡🔵🔴⚪] /, "")}</b>, el sistema sugiere los siguientes niveles para órdenes automáticas:
+                                    Selecciona un escenario basado en la volatilidad histórica del activo y el estado <b>{STATE_LABELS[asset.structural_state]?.replace(/^[🟢🟡🔵🔴⚪] /, "")}</b>:
                                 </p>
 
-                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                                    <span style={{ fontSize: "0.875rem", color: "var(--text-secondary)" }}>Orden de Compra / Límite:</span>
-                                    <span style={{ fontSize: "1rem", fontWeight: 600, color: "var(--accent-emerald)" }}>${recBuy.toFixed(2)}</span>
+                                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                                    {[
+                                        { id: "short", label: "Corto Plazo (1-2w)", data: asset.targets?.short_term, color: "var(--accent-emerald)" },
+                                        { id: "mid", label: "Medio Plazo (1-2m)", data: asset.targets?.mid_term, color: "var(--accent-blue)" },
+                                        { id: "long", label: "Largo Plazo (3-6m)", data: asset.targets?.long_term, color: "var(--accent-indigo)" },
+                                    ].map((scen) => (
+                                        <button
+                                            key={scen.id}
+                                            disabled={!scen.data}
+                                            onClick={() => {
+                                                if (scen.data?.target) {
+                                                    setSimTargetPrice(scen.data.target);
+                                                    setHasManuallySetTarget(true);
+                                                }
+                                            }}
+                                            style={{
+                                                display: "flex", justifyContent: "space-between", alignItems: "center",
+                                                padding: "10px 14px", background: simTargetPrice === scen.data?.target ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.03)",
+                                                border: "1px solid", borderColor: simTargetPrice === scen.data?.target ? scen.color : "rgba(255,255,255,0.1)",
+                                                borderRadius: 10, cursor: scen.data ? "pointer" : "not-allowed", transition: "all 0.2s", opacity: scen.data ? 1 : 0.5
+                                            }}
+                                        >
+                                            <div style={{ textAlign: "left" }}>
+                                                <div style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>{scen.label}</div>
+                                                <div style={{ fontSize: "1rem", fontWeight: 700, color: "var(--text-primary)" }}>${scen.data?.target?.toFixed(2) || "—"}</div>
+                                            </div>
+                                            <div style={{ textAlign: "right" }}>
+                                                <div style={{ fontSize: "0.85rem", fontWeight: 700, color: scen.color }}>
+                                                    +{scen.data?.return_pct || 0}%
+                                                </div>
+                                                <div style={{ fontSize: "0.65rem", color: "var(--text-muted)", fontWeight: 600, marginTop: 2 }}>
+                                                    +${((shares * (scen.data?.target || 0)) - simInvest).toFixed(2)}
+                                                </div>
+                                            </div>
+                                        </button>
+                                    ))}
                                 </div>
-                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                    <span style={{ fontSize: "0.875rem", color: "var(--text-secondary)" }}>Toma de beneficios (Target):</span>
-                                    <span style={{ fontSize: "1rem", fontWeight: 600, color: "var(--accent-blue)" }}>${recSell.toFixed(2)}</span>
+
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 16, paddingTop: 12, borderTop: "1px dashed rgba(255,255,255,0.1)" }}>
+                                    <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>Orden Compra Sugerida:</span>
+                                    <span style={{ fontSize: "0.9rem", fontWeight: 600, color: "var(--accent-emerald)" }}>${recBuy.toFixed(2)}</span>
                                 </div>
                             </div>
                         </div>

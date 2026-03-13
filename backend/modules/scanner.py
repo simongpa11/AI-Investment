@@ -11,6 +11,8 @@ import pandas as pd
 import yfinance as yf
 
 from config import SECTOR_ETFS, SCAN_UNIVERSE_SOURCE
+from modules.gemini import generate_dossier_summaries
+from db.supabase_client import get_latest_dossier_data
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +34,7 @@ PHASE_STRUCTURAL = "Structural"  # 30+ days
 # ──────────────────────────────────────────────
 # DATA FETCHING
 # ──────────────────────────────────────────────
-def fetch_ohlcv(symbol: str, days: int = 250) -> Optional[pd.DataFrame]:
+def fetch_ohlcv(symbol: str, days: int = 365) -> Optional[pd.DataFrame]:
     """Fetch historical OHLCV data from Yahoo Finance."""
     try:
         start = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
@@ -65,11 +67,12 @@ def get_ticker_info(symbol: str) -> dict:
         return {
             "name": info.get("longName") or info.get("shortName") or symbol,
             "sector": info.get("sector") or "Unknown",
-            "market_cap": info.get("marketCap") or 0,
+            "market_cap": info.get("marketCap") or info.get("market_cap") or 0,
+            "avg_volume": info.get("averageVolume") or info.get("averageVolume10days") or 0,
             "short_percent": info.get("shortPercentOfFloat") or 0,
         }
     except Exception:
-        return {"name": symbol, "sector": "Unknown", "market_cap": 0, "short_percent": 0}
+        return {"name": symbol, "sector": "Unknown", "market_cap": 0, "avg_volume": 0, "short_percent": 0}
 
 
 # ──────────────────────────────────────────────
@@ -182,7 +185,7 @@ def compute_ma_health(df: pd.DataFrame) -> dict:
     Calculate days above 50MA, 200MA.
     Detect if price is consistently above key MAs.
     """
-    if len(df) < 200:
+    if len(df) < 50:
         return {
             "above_50ma": False, "above_200ma": False, "streak_50": 0, "streak_200": 0,
             "ma50": 0.0, "ma200": 0.0, "price": df["Close"].iloc[-1] if not df.empty else 0.0,
@@ -194,23 +197,24 @@ def compute_ma_health(df: pd.DataFrame) -> dict:
 
     df = df.copy()
     df["ma50"] = df["Close"].rolling(50).mean()
-    df["ma200"] = df["Close"].rolling(200).mean()
+    df["ma200"] = df["Close"].rolling(200).mean() if len(df) >= 200 else pd.Series([0.0]*len(df))
 
     # Streak above 50MA
     streak_50 = 0
     for i in range(len(df) - 1, max(len(df) - 60, 0), -1):
-        if df["Close"].iloc[i] > df["ma50"].iloc[i]:
+        if not pd.isna(df["ma50"].iloc[i]) and df["Close"].iloc[i] > df["ma50"].iloc[i]:
             streak_50 += 1
         else:
             break
 
     # Streak above 200MA
     streak_200 = 0
-    for i in range(len(df) - 1, max(len(df) - 90, 0), -1):
-        if df["Close"].iloc[i] > df["ma200"].iloc[i]:
-            streak_200 += 1
-        else:
-            break
+    if len(df) >= 200:
+        for i in range(len(df) - 1, max(len(df) - 90, 0), -1):
+            if not pd.isna(df["ma200"].iloc[i]) and df["Close"].iloc[i] > df["ma200"].iloc[i]:
+                streak_200 += 1
+            else:
+                break
 
     # Price resilience: after corrections > 5%, did price recover?
     close_vals = df["Close"].values
@@ -228,11 +232,11 @@ def compute_ma_health(df: pd.DataFrame) -> dict:
 
     # Momentum Checks
     current_price = df["Close"].iloc[-1]
-    ma50_val = df["ma50"].iloc[-1]
-    ma200_val = df["ma200"].iloc[-1]
+    ma50_val = df["ma50"].iloc[-1] if not pd.isna(df["ma50"].iloc[-1]) else 0.0
+    ma200_val = df["ma200"].iloc[-1] if len(df) >= 200 and not pd.isna(df["ma200"].iloc[-1]) else 0.0
     
-    price_above_ma50 = current_price > ma50_val
-    ma50_above_ma200 = ma50_val > ma200_val
+    price_above_ma50 = bool(current_price > ma50_val if ma50_val > 0 else False)
+    ma50_above_ma200 = bool(ma50_val > ma200_val if ma200_val > 0 else False)
     
     # Breakout Detection
     high_52w = df["High"].iloc[-252:].max() if len(df) >= 252 else df["High"].max()
@@ -369,6 +373,117 @@ def compute_trend_persistence_score(
 
 
 # ──────────────────────────────────────────────
+# SIGNAL 5 — PRICE TARGETS & EXTENSION
+# ──────────────────────────────────────────────
+def compute_trend_extension(df: pd.DataFrame, ma50: float) -> float:
+    """
+    Measure how far the price is from its 50MA relative to volatility.
+    trend_extension = (price - MA50) / ATR_14
+    """
+    if len(df) < 20 or ma50 <= 0:
+        return 0.0
+    
+    # Simple ATR 14
+    df = df.copy()
+    df["prev_close"] = df["Close"].shift(1)
+    df["tr"] = df[["High", "Low", "prev_close"]].apply(
+        lambda r: max(r["High"] - r["Low"], abs(r["High"] - r["prev_close"]), abs(r["Low"] - r["prev_close"])),
+        axis=1
+    )
+    atr14 = df["tr"].rolling(14).mean().iloc[-1]
+    
+    current_price = df["Close"].iloc[-1]
+    if atr14 <= 0:
+        return 0.0
+        
+    extension = (current_price - ma50) / atr14
+    return float(round(extension, 2))
+
+
+def compute_dynamic_targets(df: pd.DataFrame, score: int, extension: float) -> dict:
+    """
+    Calculate 3 target scenarios based on historical return distributions.
+    Adjusted by trend persistence score and trend extension.
+    """
+    current_price = df["Close"].iloc[-1]
+    res = {
+        "short_term": {"target": 0.0, "return_pct": 0.0},
+        "mid_term": {"target": 0.0, "return_pct": 0.0},
+        "long_term": {"target": 0.0, "return_pct": 0.0}
+    }
+    
+    if len(df) < 100:
+        return res
+
+    # Calculate historical returns for 10d, 20d, 60d windows
+    returns_10d = df["Close"].pct_change(10).dropna()
+    returns_20d = df["Close"].pct_change(20).dropna()
+    returns_60d = df["Close"].pct_change(60).dropna()
+    
+    if returns_10d.empty or returns_20d.empty or returns_60d.empty:
+        return res
+
+    # Base percentiles (Volatility-based)
+    # Strong trends allow for higher percentiles
+    p_short = 0.50 if score < 80 else 0.60
+    p_mid = 0.75 if score < 80 else 0.80
+    p_long = 0.90 if score < 80 else 0.95
+    
+    ret_short = returns_10d.quantile(p_short)
+    ret_mid = returns_20d.quantile(p_mid)
+    ret_long = returns_60d.quantile(p_long)
+    
+    # 1. Trend Extension Penalties
+    penalty = 1.0
+    if extension > 3.0:
+        penalty = 0.65 # Reduce 35%
+    elif extension > 2.5:
+        penalty = 0.80 # Reduce 20%
+    
+    # 2. Score Penalties (Weak trends)
+    if score < 60:
+        penalty *= 0.85
+        
+    ret_short *= penalty
+    ret_mid *= penalty
+    ret_long *= penalty
+    
+    # 3. Floor for low volatility assets but keep them realistic
+    ret_short = max(ret_short, 0.02)
+    ret_mid = max(ret_mid, 0.05)
+    ret_long = max(ret_long, 0.10)
+    
+    # 4. Safety Caps (Avoid absurd FOMO targets)
+    ret_short = min(ret_short, 0.15)
+    ret_mid = min(ret_mid, 0.35)
+    ret_long = min(ret_long, 0.65)
+    
+    # Near 52w high limit: if very close to high, don't project massive gains immediately 
+    # unless it's a confirmed breakout
+    high_52w = df["High"].iloc[-252:].max()
+    dist_52w = (high_52w - current_price) / current_price
+    if dist_52w < 0.02 and extension > 2.0:
+        # Near resistance + extended = cautious
+        ret_short *= 0.7
+        ret_mid *= 0.8
+
+    res["short_term"] = {
+        "target": float(round(current_price * (1 + ret_short), 2)),
+        "return_pct": float(round(ret_short * 100, 1))
+    }
+    res["mid_term"] = {
+        "target": float(round(current_price * (1 + ret_mid), 2)),
+        "return_pct": float(round(ret_mid * 100, 1))
+    }
+    res["long_term"] = {
+        "target": float(round(current_price * (1 + ret_long), 2)),
+        "return_pct": float(round(ret_long * 100, 1))
+    }
+    
+    return res
+
+
+# ──────────────────────────────────────────────
 # STRUCTURAL STATE CLASSIFICATION
 # ──────────────────────────────────────────────
 def classify_structural_state(
@@ -439,40 +554,97 @@ def estimate_duration(df: pd.DataFrame, score: int) -> int:
 # ──────────────────────────────────────────────
 # MAIN SCANNER ENTRY
 # ──────────────────────────────────────────────
-def scan_symbol(symbol: str) -> Optional[dict]:
+async def scan_symbol(symbol: str, generate_summary: bool = False) -> Optional[dict]:
     """
     Run the full structural scan for a single symbol.
     Returns a structured result dict or None on failure.
     """
-    logger.info(f"Scanning {symbol}...")
-    df = fetch_ohlcv(symbol, days=250)
+    logger.info(f"Scanning {symbol} (summary={generate_summary})...")
+    df = fetch_ohlcv(symbol, days=365)
     if df is None:
+        return None
+    
+    if len(df) < 50:
         return None
 
     info = get_ticker_info(symbol)
-    sector_df = fetch_sector_etf(info["sector"])
-    market_df = fetch_ohlcv("SPY", days=250)
+    if info is None:
+        return None
+        
+    market_df = fetch_ohlcv("SPY", days=365)
+    if market_df is None:
+        return None
+
+    # Categorize Market Cap
+    market_cap = info.get("market_cap", 0)
+    avg_volume = info.get("avg_volume", 0)
+    current_price = df["Close"].iloc[-1]
+
+    if market_cap >= 10_000_000_000:
+        mc_category = "large"
+    elif market_cap >= 2_000_000_000:
+        mc_category = "mid"
+    elif market_cap >= 300_000_000:
+        mc_category = "small"
+    elif market_cap == 0 and avg_volume > 1_000_000:
+        mc_category = "large"
+    else:
+        if market_cap < 300_000_000 and market_cap > 0:
+            return None
+        mc_category = "small" if market_cap > 0 else "large"
+
+    if current_price < 3 or avg_volume < 500_000:
+        return None
 
     volume = compute_volume_regime(df)
     compression = compute_compression_expansion(df)
     ma = compute_ma_health(df)
+    
+    sector = info.get("sector")
+    sector_df = fetch_sector_etf(sector) if sector and sector != "Unknown" else None
     rs = compute_relative_strength(df, sector_df, market_df)
 
     score = compute_trend_persistence_score(volume, compression, ma, rs)
-    state = classify_structural_state(
-        score, volume, compression, ma, rs, info.get("short_percent", 0)
-    )
+    extension = compute_trend_extension(df, ma.get("ma50", 0))
+    
+    if extension > 3.0:
+        score = int(score * 0.85)
+    elif extension > 3.5:
+        score = int(score * 0.70)
+        
+    targets = compute_dynamic_targets(df, score, extension)
+    state = classify_structural_state(score, volume, compression, ma, rs, info.get("short_percent", 0))
     duration = estimate_duration(df, score)
     phase = classify_phase(duration)
+    today = date.today().isoformat()
 
-    today = df.index[-1].strftime("%Y-%m-%d") if not df.empty else date.today().isoformat()
+    dossier_data = None
+    if generate_summary:
+        from modules.narrative import fetch_news
+        articles = await fetch_news(symbol)
+        news_ctx = " ".join([a.get('headline', '') for a in articles[:10]])
+        technical_data = {
+            "score": score,
+            "extension": extension,
+            "state": state,
+            "phase": phase
+        }
+        
+        # Look for existing permanent profile to save tokens/avoid re-generation
+        existing_dossier = await get_latest_dossier_data(symbol)
+        existing_profile = existing_dossier.get("company_profile") if existing_dossier else None
+        
+        dossier_data = await generate_dossier_summaries(
+            symbol, info['name'], info, technical_data, news_ctx,
+            existing_profile=existing_profile
+        )
 
     return {
         "symbol": symbol,
         "date": today,
         "name": info["name"],
         "sector": info["sector"],
-        "trend_persistence_score": score,  # Now strictly the technical trend score
+        "trend_persistence_score": score,
         "structural_state": state,
         "phase": phase,
         "duration_days": duration,
@@ -482,6 +654,9 @@ def scan_symbol(symbol: str) -> Optional[dict]:
         "relative_strength_market": rs.get("rs_market_90d", 0),
         "trend_quality": ma.get("trend_quality", 0),
         "atr_expansion": compression.get("atr_expansion", 1.0),
+        "trend_extension": extension,
+        "market_cap_category": mc_category,
+        "targets": targets,
         "current_price": ma.get("price", 0),
         "ma50": ma.get("ma50", 0),
         "ma200": ma.get("ma200", 0),
@@ -493,17 +668,18 @@ def scan_symbol(symbol: str) -> Optional[dict]:
             "compression": compression,
             "ma": ma,
             "rs": rs,
+            "dossier": dossier_data
         },
     }
 
 
-def run_full_scan(symbols: list[str] = None) -> list[dict]:
+async def run_full_scan(symbols: list[str] = None) -> list[dict]:
     """Scan all symbols and return list of results."""
     symbols = symbols or SCAN_UNIVERSE
     results = []
     for symbol in symbols:
         try:
-            result = scan_symbol(symbol)
+            result = await scan_symbol(symbol)
             if result:
                 results.append(result)
         except Exception as e:

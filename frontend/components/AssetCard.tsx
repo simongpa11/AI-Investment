@@ -60,18 +60,46 @@ export function AssetCard({
                 title="Pulsa para ver el historial completo"
             >
                 {/* Header */}
-                <div className="asset-card-header">
+                <div className="asset-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
                     <div>
-                        <div className="asset-symbol">{asset.symbol}</div>
-                        <div className="asset-name" title={asset.name}>{asset.name}</div>
-                        <div className="asset-sector">{asset.sector}</div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                            <h3 style={{ margin: 0, fontSize: "1.3rem", fontWeight: 900, letterSpacing: "-0.02em" }}>{asset.symbol}</h3>
+                            <span className={`state-badge ${asset.structural_state}`} style={{ fontSize: "0.65rem", padding: "2px 8px" }}>
+                                {STATE_EMOJIS[asset.structural_state]} {STATE_LABELS[asset.structural_state]?.replace(/^[🟢🟡🔵🔴⚪] /, "")}
+                            </span>
+                        </div>
+                        <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "150px" }}>
+                            {asset.name}
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "4px" }}>
+                            {asset.market_cap_category && (
+                                <span style={{ 
+                                    fontSize: "0.55rem", fontWeight: 800, color: "var(--text-muted)", 
+                                    background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.05)",
+                                    padding: "1px 5px", borderRadius: "3px", textTransform: "uppercase"
+                                }}>
+                                    {asset.market_cap_category} cap
+                                </span>
+                            )}
+                            {asset.sector && asset.sector !== "Unknown" && (
+                                <span style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>
+                                    {asset.market_cap_category ? "• " : ""}{asset.sector}
+                                </span>
+                            )}
+                        </div>
                     </div>
-                    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
-                        <span className={`state-badge ${asset.structural_state}`}>
-                            {STATE_EMOJIS[asset.structural_state]} {STATE_LABELS[asset.structural_state]?.replace(/^[🟢🟡🔵🔴⚪] /, "")}
-                        </span>
+                    
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
+                        <div style={{ 
+                            width: 44, height: 44, borderRadius: "50%", 
+                            border: `2px solid ${stateColor}`, 
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                            background: `${stateColor}08`, marginBottom: 6
+                        }}>
+                            <span style={{ fontSize: "1.1rem", fontWeight: 900 }}>{combined}</span>
+                        </div>
                         {asset.current_price > 0 && (
-                            <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)", fontWeight: 600 }}>
+                            <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)", fontWeight: 700 }}>
                                 ${asset.current_price.toFixed(2)}
                             </span>
                         )}
@@ -103,57 +131,46 @@ export function AssetCard({
                     </div>
                 </div>
 
-                {/* Duration & Signals */}
-                <div className="duration-chip">
-                    <span>⏱ {asset.duration_days}d activo</span>
-                    {asset.trend_quality > 0.6 && (
-                        <>
-                            <span style={{ color: "var(--text-muted)", margin: "0 4px" }}>•</span>
-                            <span style={{ color: "var(--accent-emerald)" }} title="Trend Quality (Positive Closes Ratio)">
-                                💎 {(asset.trend_quality * 100).toFixed(0)}% cal.
-                            </span>
-                        </>
-                    )}
-                    {asset.relative_strength_market > 0.05 && (
-                        <>
-                            <span style={{ color: "var(--text-muted)", margin: "0 4px" }}>•</span>
-                            <span style={{ color: "var(--accent-blue)" }} title="Relative Strength vs Market (SPY 90d)">
-                                🏛️ RS-Mkt +{(asset.relative_strength_market * 100).toFixed(1)}%
-                            </span>
-                        </>
-                    )}
-                    {asset.atr_expansion > 1.2 && (
-                        <>
-                            <span style={{ color: "var(--text-muted)", margin: "0 4px" }}>•</span>
-                            <span style={{ color: "var(--accent-rose)" }} title="ATR Volatility Expansion (Trend start)">
-                                ⚡ Exp. ×{asset.atr_expansion.toFixed(1)}
-                            </span>
-                        </>
-                    )}
-                    {asset.volume_spike_ratio > 1.4 && (
-                        <>
-                            <span style={{ color: "var(--text-muted)", margin: "0 4px" }}>•</span>
-                            <span style={{ color: "var(--accent-amber)" }} title="Anomalous Volume Spike vs 30d">
-                                Vol ×{asset.volume_spike_ratio.toFixed(1)}
-                            </span>
-                        </>
-                    )}
+                {/* Duration & Signals Grid (Homogeneous) */}
+                <div style={{ 
+                    display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 12px", 
+                    padding: "12px", background: "rgba(255,255,255,0.04)", borderRadius: 12,
+                    marginBottom: 16
+                }}>
+                    <div style={{ fontSize: "0.75rem", display: "flex", alignItems: "center", gap: 6, color: "var(--text-secondary)" }}>
+                         <span style={{ opacity: 0.7 }}>⏱</span> 
+                         {asset.duration_days}d activo
+                    </div>
+                    <div style={{ fontSize: "0.75rem", display: "flex", alignItems: "center", gap: 6, color: "var(--text-secondary)" }}>
+                         <span style={{ opacity: 0.7 }}>📈</span>
+                         <span style={{ 
+                            color: asset.trend_extension > 2.5 ? "var(--accent-rose)" : 
+                                   asset.trend_extension > 1.5 ? "var(--accent-amber)" : 
+                                   "var(--accent-emerald)",
+                            fontWeight: 700
+                         }}>
+                            {asset.trend_extension > 0 ? "+" : ""}{asset.trend_extension.toFixed(1)}σ
+                         </span>
+                    </div>
+                    <div style={{ fontSize: "0.75rem", display: "flex", alignItems: "center", gap: 6, color: "var(--text-secondary)" }}>
+                         <span style={{ opacity: 0.7 }}>💎</span>
+                         {(asset.trend_quality * 100).toFixed(0)}% cal.
+                    </div>
+                    <div style={{ fontSize: "0.75rem", display: "flex", alignItems: "center", gap: 6, color: "var(--text-secondary)" }}>
+                         <span style={{ opacity: 0.7 }}>🏛️</span>
+                         +{(asset.relative_strength_market * 100).toFixed(0)}% RS
+                    </div>
                 </div>
+
 
                 {/* Click hint */}
                 <div style={{
                     fontSize: "0.65rem", color: "var(--text-muted)",
-                    textAlign: "center", marginBottom: 12, marginTop: -4
+                    textAlign: "center", marginBottom: 12
                 }}>
-                    👆 Pulsa para ver el historial y sumario de IA completo
+                    👆 Ver historial y detalles técnicos
                 </div>
 
-                {/* AI Summary */}
-                {asset.narrative?.summary_ai && (
-                    <div className="ai-summary" style={{ borderLeftColor: "var(--score-narrative)", background: "rgba(168, 85, 247, 0.05)" }}>
-                        🤖 {asset.narrative.summary_ai}
-                    </div>
-                )}
 
                 {/* Footer */}
                 <div className="asset-card-footer">
@@ -163,7 +180,7 @@ export function AssetCard({
                             className={`signal-indicator signal-${signal}`}
                             style={{ fontSize: "0.65rem", padding: "2px 8px" }}
                         >
-                            {signal === "strong" ? "⚡ Señal fuerte" : signal === "moderate" ? "📶 Moderada" : "📉 Débil"}
+                            {signal === "strong" ? "⚡ Fuerte" : signal === "moderate" ? "📶 Moderada" : "📉 Débil"}
                         </span>
                     </div>
                     <button

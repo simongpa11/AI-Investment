@@ -3,7 +3,17 @@
 -- 1. Add new columns to structural_scores for the new technical indicators
 ALTER TABLE public.structural_scores
 ADD COLUMN IF NOT EXISTS distance_from_52w_high numeric DEFAULT 0,
-ADD COLUMN IF NOT EXISTS volume_spike_ratio numeric DEFAULT 1.0;
+ADD COLUMN IF NOT EXISTS distance_from_90d_high numeric DEFAULT 0,
+ADD COLUMN IF NOT EXISTS volume_spike_ratio numeric DEFAULT 1.0,
+ADD COLUMN IF NOT EXISTS market_cap_category text DEFAULT 'small',
+ADD COLUMN IF NOT EXISTS trend_extension float8 DEFAULT 0.0,
+ADD COLUMN IF NOT EXISTS atr_expansion float8 DEFAULT 1.0,
+ADD COLUMN IF NOT EXISTS relative_strength_market float8 DEFAULT 0.0,
+ADD COLUMN IF NOT EXISTS trend_quality float8 DEFAULT 0.0,
+ADD COLUMN IF NOT EXISTS targets jsonb DEFAULT '{}'::jsonb,
+ADD COLUMN IF NOT EXISTS current_price float8 DEFAULT 0.0,
+ADD COLUMN IF NOT EXISTS ma50 float8 DEFAULT 0.0,
+ADD COLUMN IF NOT EXISTS ma200 float8 DEFAULT 0.0;
 
 -- Optional: rename trend_persistence_score to technical_trend_score if desired, 
 -- but keeping the original name prevents breaking the current frontend before it's updated.

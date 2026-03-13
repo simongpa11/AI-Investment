@@ -39,7 +39,7 @@ async def _run_structural():
     
     logger.info(f"Starting structural scan on complete universe ({len(all_symbols)} symbols)...")
     loop = asyncio.get_event_loop()
-    results = await loop.run_in_executor(None, run_full_scan, all_symbols)
+    results = await run_full_scan(all_symbols)
     
     for r in results:
         try:

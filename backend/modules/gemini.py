@@ -53,6 +53,29 @@ Guidelines:
 Return ONLY valid JSON format, no markdown fences, no explanation.
 """
 
+
+DOSSIER_SUMMARY_PROMPT = """
+You are a senior investment strategist. Given the following data about {symbol} ({name}):
+
+- Company Info (YF): {yf_info}
+- Technical Metrics: Score {score}/100, Extension {extension}σ, State {state}, Phase {phase}
+- Recent News Context: {news_context}
+
+Return a JSON object in Spanish with the following structure:
+{{
+  "company_profile": "A high-quality 2-3 sentence summary of what the company does (core business, market position, products).",
+  "trend_rationale": "A 2-3 sentence explanation of the current market context AND the technical/narrative justification for the current trend (why it looks promising now)."
+}}
+
+Guidelines:
+- Language: Spanish.
+- Tone: Professional, insightful, and clear.
+- Length: Max 350-400 characters per section.
+- Focus: Investment relevance.
+
+Return ONLY valid JSON.
+"""
+
 SECTOR_SUMMARY_PROMPT = """
 You are a financial market analyst. Given news summaries from multiple companies in the {sector} sector:
 
@@ -90,7 +113,7 @@ async def analyze_narrative(symbol: str, name: str, articles: list) -> Optional[
     try:
         client = get_client()
         response = client.models.generate_content(
-            model="gemini-2.5-flash",
+            model="gemini-2.0-flash",
             contents=prompt,
             config=types.GenerateContentConfig(
                 temperature=0.1,
@@ -116,6 +139,66 @@ async def analyze_narrative(symbol: str, name: str, articles: list) -> Optional[
         return None
 
 
+async def generate_dossier_summaries(
+    symbol: str, 
+    name: str, 
+    yf_info: dict, 
+    technical: dict, 
+    news_context: str,
+    existing_profile: Optional[str] = None
+) -> Optional[dict]:
+    """Generate high-quality company profile and trend rationale."""
+    
+    # If we have an existing profile, we only need the rationale.
+    # We pass the profile to Gemini so it can use it as context if needed.
+    
+    profile_instruction = ""
+    if existing_profile:
+        profile_instruction = f"EXISTING PROFILE FOUND: '{existing_profile}'. REUSE IT exactly in the 'company_profile' field. Focus your analysis ONLY on the 'trend_rationale' based on current context."
+    else:
+        profile_instruction = "Generate both a new 'company_profile' (what they do) and a 'trend_rationale' (current market/technical thesis)."
+
+    prompt = DOSSIER_SUMMARY_PROMPT.format(
+        symbol=symbol,
+        name=name,
+        yf_info=json.dumps(yf_info),
+        score=technical.get("score", 0),
+        extension=technical.get("extension", 0),
+        state=technical.get("state", "none"),
+        phase=technical.get("phase", "Emerging"),
+        news_context=news_context
+    )
+    
+    prompt += f"\n\nINSTRUCTION: {profile_instruction}"
+
+    try:
+        client = get_client()
+        response = client.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=prompt,
+            config=types.GenerateContentConfig(temperature=0.2),
+        )
+        text = response.text.strip() if response.text else ""
+        if "```" in text:
+            parts = text.split("```")
+            for part in parts:
+                if part.startswith("json"):
+                    text = part[4:].strip()
+                    break
+                elif "{" in part:
+                    text = part.strip()
+                    break
+        
+        result = json.loads(text)
+        if existing_profile and not result.get("company_profile"):
+            result["company_profile"] = existing_profile
+            
+        return result
+    except Exception as e:
+        logger.error(f"Dossier summary error for {symbol}: {e}")
+        return None
+
+
 async def analyze_sector_narrative(sector: str, summaries: list) -> Optional[dict]:
     """Analyze collective sector narrative."""
     if not summaries:
@@ -127,7 +210,7 @@ async def analyze_sector_narrative(sector: str, summaries: list) -> Optional[dic
     try:
         client = get_client()
         response = client.models.generate_content(
-            model="gemini-2.5-flash",
+            model="gemini-2.0-flash",
             contents=prompt,
         )
         text = response.text.strip() if response.text else ""

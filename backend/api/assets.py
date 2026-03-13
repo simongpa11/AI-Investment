@@ -22,16 +22,19 @@ async def get_dashboard_assets(limit: int = Query(50, le=100)):
     if not raw_struct_data:
         return {"data": []}
 
+    # Sort them by date DESC first so dedup picks the newest
+    raw_struct_data.sort(key=lambda x: (str(x.get("date", "")), x.get("trend_persistence_score", 0)), reverse=True)
+
     # Dedup structural scores: keep only the newest per symbol
     struct_map = {}
     for item in raw_struct_data:
         sym = item["symbol"]
-        if sym not in struct_map or str(item["date"]) > str(struct_map[sym]["date"]):
+        if sym not in struct_map:
             struct_map[sym] = item
             
     struct_data = list(struct_map.values())
     
-    # Optionally sort them by score or let frontend handle it
+    # Finally sort by score for the dashboard view
     struct_data.sort(key=lambda x: x.get("trend_persistence_score", 0), reverse=True)
     if limit:
         struct_data = struct_data[:limit]
@@ -141,7 +144,7 @@ async def get_asset_candles(symbol: str, timeframe: str = Query("1M", descriptio
 async def rescan_symbol(symbol: str):
     """Trigger an immediate rescan of a single symbol."""
     sym = symbol.upper()
-    structural = scan_symbol(sym)
+    structural = await scan_symbol(sym, generate_summary=True)
     if not structural:
         raise HTTPException(status_code=404, detail=f"Could not scan {sym}")
 
@@ -186,7 +189,16 @@ async def get_phase_summary():
     nar_res = client.table("narrative_scores").select("*").in_("symbol", symbols).execute()
     nar_map = {n["symbol"]: n for n in (nar_res.data or [])}
 
+    # Dedup structural scores: keep only the newest per symbol
+    struct_map = {}
     for item in all_data:
+        sym = item["symbol"]
+        if sym not in struct_map:
+            struct_map[sym] = item
+            
+    filtered_data = list(struct_map.values())
+
+    for item in filtered_data:
         # Quality Filters
         nar_score = nar_map.get(item["symbol"], {}).get("narrative_persistence_score", 0)
         struct_score = item.get("trend_persistence_score", 0)

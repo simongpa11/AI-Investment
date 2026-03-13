@@ -111,7 +111,7 @@ async def trigger_manual_scan(symbol: str):
     loop = asyncio.get_event_loop()
     
     # 1. Structural Scan
-    result = await loop.run_in_executor(None, scan_symbol, sym)
+    result = await scan_symbol(sym)
     if not result:
         raise HTTPException(status_code=404, detail=f"Could not fetch data for {sym}. Invalid ticker?")
 
