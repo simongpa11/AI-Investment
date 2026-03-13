@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState, useMemo } from "react";
+import { createPortal } from "react-dom";
 import {
     AreaChart, Area, XAxis, YAxis, CartesianGrid,
     Tooltip, ResponsiveContainer, Legend,
@@ -60,6 +61,10 @@ export function DossierModal({ asset, narrative, onClose }: DossierModalProps) {
         asset.trend_persistence_score,
         narrative?.narrative_persistence_score ?? 0
     );
+
+    // Pull-to-dismiss state
+    const [touchStart, setTouchStart] = useState<number | null>(null);
+    const [translateY, setTranslateY] = useState(0);
 
     // Fetch Score History
     useEffect(() => {
@@ -154,43 +159,85 @@ export function DossierModal({ asset, narrative, onClose }: DossierModalProps) {
         </button>
     );
 
-    return (
+    const [mounted, setMounted] = useState(false);
+    useEffect(() => { setMounted(true); }, []);
+
+    const content = (
         <>
             <div
                 onClick={onClose}
                 style={{
-                    position: "fixed", inset: 0, zIndex: 1000,
-                    background: "rgba(0,0,0,0.7)",
-                    backdropFilter: "blur(6px)",
-                    animation: "fadeIn 0.18s ease",
+                    position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999,
+                    background: "rgba(0,0,0,0.85)",
+                    backdropFilter: "blur(8px)",
+                    animation: "fadeIn 0.2s ease",
                 }}
             />
 
-            <div style={isMobile ? {
-                position: "fixed",
-                top: 0, left: 0, right: 0, bottom: 0,
-                zIndex: 1001,
-                width: "100%",
-                height: "100%",
-                overflowY: "auto",
-                background: "var(--bg-primary)",
-                animation: "slideUp 0.2s ease",
-                padding: "0 0 80px 0",
-            } : {
-                position: "fixed",
-                top: "50%", left: "50%",
-                transform: "translate(-50%, -50%)",
-                zIndex: 1001,
-                width: "min(840px, 95vw)",
-                maxHeight: "90vh",
-                overflowY: "auto",
-                background: "var(--bg-card)",
-                border: "1px solid var(--border)",
-                borderRadius: "var(--radius-xl)",
-                boxShadow: "0 32px 80px rgba(0,0,0,0.6)",
-                animation: "slideUp 0.2s ease",
-                padding: "0 0 24px 0",
-            }}>
+            <div 
+                className="dossier-modal-container"
+                style={isMobile ? {
+                    position: "fixed",
+                    top: 0,
+                    left: 0,
+                    width: "100%",
+                    height: "100%",
+                    zIndex: 10000,
+                    overflowY: "auto",
+                    background: "#08080c", // Very dark solid background
+                    animation: translateY === 0 ? "mobileSlideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1)" : "none",
+                    display: "flex",
+                    flexDirection: "column",
+                    paddingBottom: 60,
+                    transform: `translateY(${translateY}px)`,
+                    transition: touchStart === null ? "transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)" : "none",
+                } : {
+                    position: "fixed",
+                    top: "50%", left: "50%",
+                    transform: "translate(-50%, -50%)",
+                    zIndex: 10000,
+                    width: "min(840px, 95vw)",
+                    maxHeight: "90vh",
+                    overflowY: "auto",
+                    background: "var(--bg-card)",
+                    border: "1px solid var(--border)",
+                    borderRadius: "var(--radius-xl)",
+                    boxShadow: "0 32px 80px rgba(0,0,0,0.8)",
+                    animation: "desktopCenterScale 0.2s ease",
+                    padding: "0 0 24px 0",
+                }}
+                onScroll={(e) => {
+                    if (!isMobile) return;
+                    // Standard overscroll-to-close feel (fallback if touch isn't captured)
+                    if (e.currentTarget.scrollTop < -70) onClose();
+                }}
+                onTouchStart={(e) => {
+                    if (!isMobile || e.currentTarget.scrollTop > 0) return;
+                    setTouchStart(e.touches[0].clientY);
+                }}
+                onTouchMove={(e) => {
+                    if (!isMobile || touchStart === null) return;
+                    const deltaY = e.touches[0].clientY - touchStart;
+                    if (deltaY > 0) {
+                        setTranslateY(deltaY);
+                        if (deltaY > 150) {
+                            onClose();
+                            setTouchStart(null);
+                        }
+                    }
+                }}
+                onTouchEnd={() => {
+                    if (translateY < 150) setTranslateY(0);
+                    setTouchStart(null);
+                }}
+            >
+                {/* Mobile Pull Handle */}
+                {isMobile && (
+                    <div style={{ 
+                        width: 36, height: 4, background: "rgba(255,255,255,0.15)", 
+                        borderRadius: 2, margin: "8px auto", flexShrink: 0 
+                    }} />
+                )}
                 {/* Header strip */}
                 <div style={{
                     padding: isMobile ? "14px 16px 14px" : "24px 28px 20px",
@@ -226,13 +273,28 @@ export function DossierModal({ asset, narrative, onClose }: DossierModalProps) {
                         <button
                             onClick={onClose}
                             style={{
-                                background: "rgba(255,255,255,0.06)", border: "1px solid var(--border)",
-                                borderRadius: "50%", width: isMobile ? 40 : 32, height: isMobile ? 40 : 32,
-                                cursor: "pointer", color: "var(--text-secondary)", fontSize: "1.1rem",
-                                display: "flex", alignItems: "center", justifyContent: "center",
-                                flexShrink: 0, marginLeft: 12,
+                                background: "rgba(255,255,255,0.1)",
+                                border: "1px solid rgba(255,255,255,0.1)",
+                                borderRadius: "50%",
+                                width: isMobile ? 36 : 30,
+                                height: isMobile ? 36 : 30,
+                                cursor: "pointer",
+                                color: "white",
+                                fontSize: isMobile ? "1.4rem" : "1.1rem",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                flexShrink: 0,
+                                marginLeft: 12,
+                                transition: "all 0.2s",
+                                zIndex: 10,
+                                paddingBottom: isMobile ? 4 : 2,
                             }}
-                        >×</button>
+                            onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.2)"}
+                            onMouseLeave={e => e.currentTarget.style.background = "rgba(255,255,255,0.1)"}
+                        >
+                            &times;
+                        </button>
                     </div>
 
                     {/* Score row */}
@@ -710,8 +772,18 @@ export function DossierModal({ asset, narrative, onClose }: DossierModalProps) {
 
             <style>{`
         @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
-        @keyframes slideUp { from { opacity: 0; transform: translate(-50%, -46%) } to { opacity: 1; transform: translate(-50%, -50%) } }
+        @keyframes mobileSlideUp { 
+            from { transform: translateY(100%); opacity: 0.5; } 
+            to { transform: translateY(0); opacity: 1; } 
+        }
+        @keyframes desktopCenterScale { 
+            from { opacity: 0; transform: translate(-50%, -48%) scale(0.96); } 
+            to { opacity: 1; transform: translate(-50%, -50%) scale(1); } 
+        }
       `}</style>
         </>
     );
+
+    if (!mounted) return null;
+    return createPortal(content, document.body);
 }
