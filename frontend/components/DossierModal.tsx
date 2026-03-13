@@ -266,10 +266,12 @@ export function DossierModal({ asset, narrative, onClose }: DossierModalProps) {
                         alignItems: "flex-start",
                         position: "sticky",
                         top: 0,
-                        zIndex: 10,
-                        background: isMobile ? "#08080c" : "transparent",
+                        zIndex: 1000, 
+                        background: "#08080c", 
+                        minHeight: isMobile ? "80px" : "auto", 
                         cursor: isMobile ? "grab" : "default",
                         userSelect: "none",
+                        borderBottom: isMobile ? "1px solid rgba(255,255,255,0.06)" : "none",
                     }}
                 >
                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -331,14 +333,19 @@ export function DossierModal({ asset, narrative, onClose }: DossierModalProps) {
                     marginTop: isMobile ? "0" : "-16px", // Adjust for sticky header padding
                     paddingTop: isMobile ? "0" : "16px",
                 }}>
-                    {/* Score row */}
-                    <div style={{ display: "flex", gap: isMobile ? 12 : 20, marginTop: isMobile ? 12 : 20 }}>
+                    {/* Score row - Fixed to wrap on mobile */}
+                    <div style={{ 
+                        display: "flex", 
+                        flexWrap: isMobile ? "wrap" : "nowrap",
+                        gap: isMobile ? "16px 12px" : "20px", 
+                        marginTop: isMobile ? 12 : 20 
+                    }}>
                         {[
                             { label: "Structural", value: asset.trend_persistence_score, color: "var(--score-structural)" },
                             { label: "Narrative", value: narrative?.narrative_persistence_score ?? 0, color: "var(--score-narrative)" },
                             { label: "Combined", value: combined, color: "var(--score-combined)" },
                         ].map((s) => (
-                            <div key={s.label} style={{ flex: 1 }}>
+                            <div key={s.label} style={{ flex: isMobile ? "1 0 45%" : 1, minWidth: isMobile ? "140px" : "0" }}>
                                 <div style={{ fontSize: "0.6rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>
                                     {s.label}
                                 </div>
@@ -350,7 +357,7 @@ export function DossierModal({ asset, narrative, onClose }: DossierModalProps) {
                                 </div>
                             </div>
                         ))}
-                        <div style={{ flex: 1 }}>
+                        <div style={{ flex: isMobile ? "1 0 45%" : 1, minWidth: isMobile ? "140px" : "0" }}>
                             <div style={{ fontSize: "0.6rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>
                                 {isMobile ? "Días" : "Activo desde"}
                             </div>
@@ -367,17 +374,21 @@ export function DossierModal({ asset, narrative, onClose }: DossierModalProps) {
                 <div 
                     style={{
                         display: "flex",
-                        borderBottom: "1px solid rgba(255,255,255,0.06)",
+                        borderBottom: "1px solid rgba(255,255,255,0.1)",
                         margin: isMobile ? "0" : "0 28px",
                         padding: isMobile ? "0 10px" : "0",
+                        width: "100%",
+                        maxWidth: "100%",
                         overflowX: "auto",
                         scrollbarWidth: "none",
                         WebkitOverflowScrolling: "touch" as any,
-                        background: isMobile ? "rgba(8, 8, 12, 0.95)" : "transparent",
-                        backdropFilter: isMobile ? "blur(10px)" : "none",
+                        background: isMobile ? "#12121a" : "transparent",
+                        backdropFilter: isMobile ? "blur(16px)" : "none",
                         position: isMobile ? "sticky" : "relative",
-                        top: isMobile ? 64 : 0, // Below the sticky header
-                        zIndex: 9,
+                        top: isMobile ? 80 : 0, 
+                        zIndex: 2000, // Very high
+                        justifyContent: isMobile ? "space-between" : "flex-start",
+                        boxShadow: isMobile ? "0 4px 12px rgba(0,0,0,0.3)" : "none",
                     }}
                     onTouchStart={(e) => e.stopPropagation()}
                     onTouchMove={(e) => e.stopPropagation()}
@@ -390,7 +401,7 @@ export function DossierModal({ asset, narrative, onClose }: DossierModalProps) {
 
                 {/* TAB CONTENT: SUMMARY */}
                 {activeTab === "summary" && (
-                    <div style={{ padding: isMobile ? "20px 16px" : "24px 28px", animation: "fadeIn 0.3s ease", flex: 1, overflowY: "auto" }}>
+                    <div style={{ padding: isMobile ? "20px 16px" : "24px 28px", animation: "fadeIn 0.3s ease" }}>
                         <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "20px" }}>
                             {/* Section 1: Permanent Profile */}
                             <div style={{ 
