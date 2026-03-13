@@ -1,8 +1,19 @@
 "use client";
 import { useState, useEffect, useCallback, useRef } from "react";
-import { api, triggerManualScan, StructuralScore, NarrativeScore, ScoreHistory, PhaseSummary, WatchlistItem } from "@/lib/api";
+import { api, triggerManualScan, StructuralScore, NarrativeScore, ScoreHistory, PhaseSummary, WatchlistItem, getCombinedScore } from "@/lib/api";
 import { TrendSection } from "@/components/TrendSection";
 import { AssetCard } from "@/components/AssetCard";
+
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth <= 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+  return isMobile;
+}
 
 const STATE_LABELS = {
   all: "Todos",
@@ -33,6 +44,8 @@ export default function DashboardPage() {
   const [minNarrative, setMinNarrative] = useState<number>(0);
   const [minCombined, setMinCombined] = useState<number>(0);
   const [error, setError] = useState<string | null>(null);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const isMobile = useIsMobile();
 
   // Manual Scan state
   const [manualTicker, setManualTicker] = useState("");
@@ -194,10 +207,15 @@ export default function DashboardPage() {
     <>
       {/* Dashboard Header */}
       <div className="dashboard-header">
-        <h1 className="dashboard-title">Market Structural Scanner</h1>
-        <p className="dashboard-subtitle">
-          Detección de cambio estructural temprano · Inversión a medio plazo
-        </p>
+        {/* Title hidden on mobile */}
+        {!isMobile && (
+          <>
+            <h1 className="dashboard-title">Market Structural Scanner</h1>
+            <p className="dashboard-subtitle">
+              Detección de cambio estructural temprano · Inversión a medio plazo
+            </p>
+          </>
+        )}
 
         <div className="stats-row" style={{ alignItems: 'center' }}>
           <div className="stat-chip">
@@ -285,6 +303,7 @@ export default function DashboardPage() {
             </button>
           </form>
 
+          {/* Scan Global — always visible */}
           <button
             className="btn btn-primary btn-scan"
             onClick={handleGlobalScan}
@@ -297,86 +316,138 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {error && (
-        <div style={{
-          padding: "16px 20px",
-          background: "rgba(244,63,94,0.1)",
-          border: "1px solid rgba(244,63,94,0.3)",
-          borderRadius: "var(--radius-md)",
-          color: "var(--accent-rose)",
-          fontSize: "0.875rem",
-          marginBottom: 24,
-        }}>
-          ⚠️ {error}
+      {/* ── FILTER AREA ────────────────────────────────────────── */}
+      {isMobile ? (
+        /* MOBILE: collapsible filter panel behind a toggle button */
+        <div style={{ marginBottom: 16 }}>
+          <button
+            onClick={() => setFiltersOpen(v => !v)}
+            style={{
+              display: "flex", alignItems: "center", gap: 6,
+              padding: "8px 14px", borderRadius: 999,
+              background: filtersOpen ? "rgba(99,102,241,0.18)" : "rgba(255,255,255,0.05)",
+              border: `1px solid ${filtersOpen ? "var(--accent-indigo)" : "rgba(255,255,255,0.1)"}`,
+              color: filtersOpen ? "var(--accent-indigo)" : "var(--text-secondary)",
+              fontSize: "0.8rem", fontWeight: 600, cursor: "pointer",
+              transition: "all 0.2s ease",
+            }}
+          >
+            <span style={{ fontSize: "0.9rem" }}>⚙</span>
+            Filtros
+            <span style={{ opacity: 0.6, fontSize: "0.7rem" }}>{filtersOpen ? "▲" : "▼"}</span>
+          </button>
+
+          {filtersOpen && (
+            <div style={{
+              marginTop: 12, padding: "16px",
+              background: "rgba(255,255,255,0.03)",
+              border: "1px solid var(--border)",
+              borderRadius: 14,
+              display: "flex", flexDirection: "column", gap: 16,
+              animation: "fadeIn 0.18s ease",
+            }}>
+              {/* States */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <span style={{ fontSize: "0.6rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 700 }}>Estados</span>
+                <div className="filter-bar" style={{ display: "flex", gap: 8 }}>
+                  {STATE_FILTERS.map((s) => (
+                    <button key={s} onClick={() => setSelectedState(s)} className={`filter-chip ${selectedState === s ? "active" : ""}`}>
+                      {STATE_LABELS[s]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {/* Cap */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <span style={{ fontSize: "0.6rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 700 }}>Tamaño</span>
+                <div className="filter-bar" style={{ display: "flex", gap: 8 }}>
+                  {CAP_FILTERS.map((c) => (
+                    <button key={c} onClick={() => setSelectedCap(c)} className={`filter-chip ${selectedCap === c ? "active" : ""}`}>
+                      {c === "all" ? "Todos" : `${c.charAt(0).toUpperCase() + c.slice(1)} Cap`}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {/* Score inputs */}
+              <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                {([
+                  { label: "Structural", val: minStructural, set: setMinStructural },
+                  { label: "Narrative", val: minNarrative, set: setMinNarrative },
+                  { label: "Combined", val: minCombined, set: setMinCombined },
+                ] as const).map(({ label, val, set }) => (
+                  <div key={label} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ fontSize: "0.65rem", color: "var(--text-muted)", whiteSpace: "nowrap" }}>{label}</span>
+                    <input type="number" value={val} onChange={e => set(parseInt(e.target.value) || 0)}
+                      style={{ width: 52, padding: "5px 7px", borderRadius: 6, background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", color: "white", fontSize: "0.8rem" }}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
+      ) : (
+        /* DESKTOP: full inline filter row */
+        <>
+          {error && (
+            <div style={{
+              padding: "16px 20px",
+              background: "rgba(244,63,94,0.1)",
+              border: "1px solid rgba(244,63,94,0.3)",
+              borderRadius: "var(--radius-md)",
+              color: "var(--accent-rose)",
+              fontSize: "0.875rem",
+              marginBottom: 24,
+            }}>
+              ⚠️ {error}
+            </div>
+          )}
+
+          {/* Filters Row */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "16px", marginBottom: "24px" }}>
+            {/* States + Cap */}
+            <div style={{ display: "flex", gap: "16px", flexWrap: "wrap", alignItems: "flex-start" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <span style={{ fontSize: "0.625rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 700, paddingLeft: 4 }}>Estados Estructurales</span>
+                <div className="filter-bar" style={{ display: "flex", gap: "8px" }}>
+                  {STATE_FILTERS.map((s) => (
+                    <button key={s} onClick={() => setSelectedState(s)} className={`filter-chip ${selectedState === s ? "active" : ""}`}>
+                      {STATE_LABELS[s]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <span style={{ fontSize: "0.625rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 700, paddingLeft: 4 }}>Tamaño empresa</span>
+                <div className="filter-bar" style={{ display: "flex", gap: "8px" }}>
+                  {CAP_FILTERS.map((c) => (
+                    <button key={c} onClick={() => setSelectedCap(c)} className={`filter-chip ${selectedCap === c ? "active" : ""}`}>
+                      {c === "all" ? "Todos" : `${c.charAt(0).toUpperCase() + c.slice(1)} Cap`}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Structural</span>
+                <input type="number" value={minStructural} onChange={(e) => setMinStructural(parseInt(e.target.value) || 0)}
+                  style={{ width: 56, padding: '6px 8px', borderRadius: 6, background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', fontSize: '0.8rem' }} />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Narrative</span>
+                <input type="number" value={minNarrative} onChange={(e) => setMinNarrative(parseInt(e.target.value) || 0)}
+                  style={{ width: 56, padding: '6px 8px', borderRadius: 6, background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', fontSize: '0.8rem' }} />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Combined</span>
+                <input type="number" value={minCombined} onChange={(e) => setMinCombined(parseInt(e.target.value) || 0)}
+                  style={{ width: 56, padding: '6px 8px', borderRadius: 6, background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', fontSize: '0.8rem' }} />
+              </div>
+            </div>
+          </div>
+        </>
       )}
-
-      {/* Filters Row */}
-      <div style={{ display: "flex", flexDirection: "column", gap: "16px", marginBottom: "24px" }}>
-        {/* States + Cap: horizontal scroll on mobile */}
-        <div style={{ display: "flex", gap: "16px", flexWrap: "wrap", alignItems: "flex-start" }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <span style={{ fontSize: "0.625rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 700, paddingLeft: 4 }}>Estados Estructurales</span>
-            <div className="filter-bar" style={{ display: "flex", gap: "8px" }}>
-              {STATE_FILTERS.map((s) => (
-                <button
-                  key={s}
-                  onClick={() => setSelectedState(s)}
-                  className={`filter-chip ${selectedState === s ? "active" : ""}`}
-                >
-                  {STATE_LABELS[s]}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Market Cap */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <span style={{ fontSize: "0.625rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 700, paddingLeft: 4 }}>Tamaño empresa</span>
-            <div className="filter-bar" style={{ display: "flex", gap: "8px" }}>
-              {CAP_FILTERS.map((c) => (
-                <button
-                  key={c}
-                  onClick={() => setSelectedCap(c)}
-                  className={`filter-chip ${selectedCap === c ? "active" : ""}`}
-                >
-                  {c === "all" ? "Todos" : `${c.charAt(0).toUpperCase() + c.slice(1)} Cap`}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Structural</span>
-            <input
-              type="number"
-              value={minStructural}
-              onChange={(e) => setMinStructural(parseInt(e.target.value) || 0)}
-              style={{ width: 56, padding: '6px 8px', borderRadius: 6, background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', fontSize: '0.8rem' }}
-            />
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Narrative</span>
-            <input
-              type="number"
-              value={minNarrative}
-              onChange={(e) => setMinNarrative(parseInt(e.target.value) || 0)}
-              style={{ width: 56, padding: '6px 8px', borderRadius: 6, background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', fontSize: '0.8rem' }}
-            />
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Combined</span>
-            <input
-              type="number"
-              value={minCombined}
-              onChange={(e) => setMinCombined(parseInt(e.target.value) || 0)}
-              style={{ width: 56, padding: '6px 8px', borderRadius: 6, background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', fontSize: '0.8rem' }}
-            />
-          </div>
-        </div>
-      </div>
 
       {loading && (
         <div className="asset-grid" style={{ marginBottom: 32 }}>
