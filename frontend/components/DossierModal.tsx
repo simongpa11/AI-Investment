@@ -330,8 +330,9 @@ export function DossierModal({ asset, narrative, onClose }: DossierModalProps) {
                     padding: isMobile ? "0 20px 14px" : "0 28px 20px",
                     background: `linear-gradient(135deg, ${stateColor}18 0%, transparent 60%)`,
                     borderBottom: isMobile ? "1px solid var(--border)" : "none",
-                    marginTop: isMobile ? "0" : "-16px", // Adjust for sticky header padding
+                    marginTop: isMobile ? "0" : "-16px", 
                     paddingTop: isMobile ? "0" : "16px",
+                    flexShrink: 0, // Prevent shrinking
                 }}>
                     {/* Score row - Fixed to wrap on mobile */}
                     <div style={{ 
@@ -372,9 +373,10 @@ export function DossierModal({ asset, narrative, onClose }: DossierModalProps) {
                 </div>
 
                 <div 
+                    className="modal-tab-bar"
                     style={{
                         display: "flex",
-                        borderBottom: "1px solid rgba(255,255,255,0.1)",
+                        borderBottom: "1px solid rgba(255,255,255,0.15)",
                         margin: isMobile ? "0" : "0 28px",
                         padding: isMobile ? "0 10px" : "0",
                         width: "100%",
@@ -383,20 +385,22 @@ export function DossierModal({ asset, narrative, onClose }: DossierModalProps) {
                         scrollbarWidth: "none",
                         WebkitOverflowScrolling: "touch" as any,
                         background: isMobile ? "#12121a" : "transparent",
-                        backdropFilter: isMobile ? "blur(16px)" : "none",
+                        backdropFilter: isMobile ? "blur(20px)" : "none",
                         position: isMobile ? "sticky" : "relative",
                         top: isMobile ? 80 : 0, 
-                        zIndex: 2000, // Very high
+                        zIndex: 2000,
                         justifyContent: isMobile ? "space-between" : "flex-start",
-                        boxShadow: isMobile ? "0 4px 12px rgba(0,0,0,0.3)" : "none",
+                        boxShadow: isMobile ? "0 10px 20px rgba(0,0,0,0.4)" : "none",
+                        flexShrink: 0, // CRITICAL: Prevent 0-height shrinking
+                        minHeight: isMobile ? "48px" : "auto",
                     }}
                     onTouchStart={(e) => e.stopPropagation()}
                     onTouchMove={(e) => e.stopPropagation()}
                 >
-                    <TabButton id="price" label={isMobile ? "📈 Precio" : "Evolución Estructural"} />
-                    <TabButton id="scores" label={isMobile ? "📊 Scores" : "Historial de Scores"} />
-                    <TabButton id="simulator" label={isMobile ? "🎯 Simular" : "Simulador de Estrategia"} />
-                    <TabButton id="summary" label={isMobile ? "📋 Resumen" : "Resumen"} />
+                    <TabButton id="price" label={isMobile ? "📈 Precio" : "Evolución"} />
+                    <TabButton id="scores" label={isMobile ? "📊 Scores" : "Historial"} />
+                    <TabButton id="simulator" label={isMobile ? "🎯 Simular" : "Simulador"} />
+                    <TabButton id="summary" label={isMobile ? "📋 Resumen" : "Análisis AI"} />
                 </div>
 
                 {/* TAB CONTENT: SUMMARY */}
