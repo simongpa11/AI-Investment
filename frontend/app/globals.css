@@ -876,3 +876,78 @@ body {
   .dashboard-title { font-size: 1.2rem; }
   .stat-chip { min-width: 72px; }
 }
+
+/* ─────────────────────────────────────────────
+   MOBILE CARD DECK (Tinder-style snap)
+───────────────────────────────────────────── */
+.deck-wrapper {
+  position: relative;
+  width: 100%;
+  user-select: none;
+}
+
+.deck-counter {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-align: right;
+  padding-right: 20px;
+  margin-bottom: 6px;
+}
+
+.snap-deck {
+  display: flex;
+  gap: 12px;
+  overflow-x: scroll;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding: 4px 20px 12px;
+  /* Negative margin so padding doesn't clip edges */
+  margin: 0 -20px;
+  cursor: grab;
+  will-change: transform;
+}
+
+.snap-deck::-webkit-scrollbar {
+  display: none;
+}
+
+.snap-deck:active {
+  cursor: grabbing;
+}
+
+.snap-card {
+  flex-shrink: 0;
+  /* 88vw wide + peek of next on right */
+  width: calc(100vw - 60px);
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+}
+
+/* Dot pagination */
+.deck-dots {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  padding-bottom: 4px;
+}
+
+.deck-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.15);
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.deck-dot.active {
+  width: 18px;
+  border-radius: 3px;
+  background: var(--accent-indigo); /* overridden per-section by inline style */
+}

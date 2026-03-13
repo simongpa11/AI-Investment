@@ -1,7 +1,8 @@
 "use client";
-import { useState } from "react";
-import { StructuralScore, NarrativeScore, ScoreHistory } from "@/lib/api";
+import { useState, useEffect } from "react";
+import { StructuralScore } from "@/lib/api";
 import { AssetCard } from "./AssetCard";
+import { MobileCardDeck } from "./MobileCardDeck";
 
 const DEFAULT_VISIBLE = 8;
 
@@ -39,6 +40,17 @@ const PHASE_CONFIG = {
     },
 };
 
+function useIsMobile() {
+    const [isMobile, setIsMobile] = useState(false);
+    useEffect(() => {
+        const check = () => setIsMobile(window.innerWidth <= 768);
+        check();
+        window.addEventListener("resize", check);
+        return () => window.removeEventListener("resize", check);
+    }, []);
+    return isMobile;
+}
+
 export function TrendSection({
     phase,
     assets,
@@ -50,6 +62,7 @@ export function TrendSection({
 }: TrendSectionProps) {
     const config = PHASE_CONFIG[phase];
     const [showAll, setShowAll] = useState(false);
+    const isMobile = useIsMobile();
 
     const filtered = assets.filter((a) => {
         const narScore = a.narrative?.narrative_persistence_score ?? 0;
@@ -88,7 +101,16 @@ export function TrendSection({
                     <p>No hay estructuras {phase.toLowerCase()} detectadas ahora mismo.</p>
                     <p style={{ marginTop: 8, fontSize: "0.75rem" }}>Ejecuta un scan para actualizar.</p>
                 </div>
+            ) : isMobile ? (
+                /* ── MOBILE: Tinder-style snap deck ── */
+                <MobileCardDeck
+                    assets={filtered}
+                    watchedSymbols={watchedSymbols}
+                    onWatchToggle={onWatchToggle}
+                    accentColor={config.dotColor}
+                />
             ) : (
+                /* ── DESKTOP: standard grid ── */
                 <>
                     <div className="asset-grid">
                         {visible.map((asset) => (
@@ -101,7 +123,6 @@ export function TrendSection({
                         ))}
                     </div>
 
-                    {/* Ver más / Ver menos */}
                     {filtered.length > DEFAULT_VISIBLE && (
                         <div style={{ textAlign: "center", marginTop: 16 }}>
                             <button
@@ -121,9 +142,7 @@ export function TrendSection({
                                 onMouseEnter={e => (e.currentTarget.style.background = `${config.dotColor}18`)}
                                 onMouseLeave={e => (e.currentTarget.style.background = "rgba(255,255,255,0.04)")}
                             >
-                                {showAll
-                                    ? "▲ Ver menos"
-                                    : `▼ Ver ${hiddenCount} más`}
+                                {showAll ? "▲ Ver menos" : `▼ Ver ${hiddenCount} más`}
                             </button>
                         </div>
                     )}
